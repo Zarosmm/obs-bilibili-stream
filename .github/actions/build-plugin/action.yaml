@@ -73,6 +73,22 @@ runs:
 
         .github/scripts/build-ubuntu ${build_args}
 
+    - name: Setup vcpkg
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        git clone https://github.com/microsoft/vcpkg.git
+        cd vcpkg
+        .\bootstrap-vcpkg.bat
+        .\vcpkg integrate install
+        cd ..
+
+    - name: Install dependencies
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        vcpkg install curl:x64-windows openssl:x64-windows json-c:x64-windows
+
     - name: Run Windows Build
       if: runner.os == 'Windows'
       shell: pwsh
