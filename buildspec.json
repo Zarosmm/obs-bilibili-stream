@@ -29,6 +29,15 @@
             "debugSymbols": {
                 "windows-x64": "11b7be92cf66a273299b8f3515c07a5cfb61614b59a4e67f7fc5ecba5e2bdf21"
             }
+        },
+        "qzxing": {
+            "version": "3.3.0",
+            "baseUrl": "https://github.com/ftylitak/qzxing/archive/refs/tags",
+            "label": "OBS sources",
+            "hashes": {
+                "macos": "39751f067bacc13d44b116c5138491b5f1391f91516d3d590d874edd21292291",
+                "windows-x64": "2c8427c10b55ac6d68008df2e9a3e82f4647aaad18f105e30d4713c2de678ccf"
+            }
         }
     },
     "platformConfig": {

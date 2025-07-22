@@ -23,7 +23,11 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QMainWindow>
 #include <QMenuBar>
 #include <QMenu>
+#include <QDialog>
+#include <QLabel>
+#include <QVBoxLayout>
 #include <windows.h>
+#include <QZXing.h> // 添加 QZXing 头文件
 #include "bili_api.h"
 
 OBS_DECLARE_MODULE()
@@ -43,15 +47,51 @@ public:
 private:
     BiliConfig config;
 
+    // 使用 QZXing 生成二维码图像
+    QPixmap generateQrCodePixmap(const char* qrcode_data) {
+        if (!qrcode_data) {
+            obs_log(LOG_ERROR, "二维码数据为空，无法生成二维码");
+            return QPixmap();
+        }
+
+        // 使用 QZXing 生成二维码
+        QZXing encoder;
+        encoder.setEncoder(QZXing::EncoderFormat_QR_CODE);
+        QImage qrImage = encoder.encodeData(QString(qrcode_data));
+        if (qrImage.isNull()) {
+            obs_log(LOG_ERROR, "QZXing 生成二维码失败");
+            return QPixmap();
+        }
+
+        return QPixmap::fromImage(qrImage);
+    }
+
 public slots:
     void onScanQrcodeTriggered() {
         obs_log(LOG_INFO, "扫码登录菜单项被点击");
-        char* qrcode_data = NULL;
-        if (bili_get_qrcode(&qrcode_data)) {
-            obs_log(LOG_INFO, "二维码数据: %s", qrcode_data ? qrcode_data : "无数据");
-            // TODO: 显示二维码（需添加 UI 逻辑）
+        char* qrcode_data = nullptr;
+        char* qrcode_key = nullptr;
+        if (bili_get_qrcode(&qrcode_data, &qrcode_key)) {
+            obs_log(LOG_INFO, "二维码数据: %s, 二维码密钥: %s",
+                    qrcode_data ? qrcode_data : "无数据",
+                    qrcode_key ? qrcode_key : "无数据");
+
+            // 创建对话框显示二维码
+            QDialog* qrDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
+            qrDialog->setWindowTitle("Bilibili 登录二维码");
+            QVBoxLayout* layout = new QVBoxLayout(qrDialog);
+            QLabel* qrLabel = new QLabel(qrDialog);
+            qrLabel->setPixmap(generateQrCodePixmap(qrcode_data));
+            layout->addWidget(qrLabel);
+            QLabel* infoLabel = new QLabel("请使用Bilibili手机客户端扫描二维码登录", qrDialog);
+            layout->addWidget(infoLabel);
+            qrDialog->setLayout(layout);
+            qrDialog->exec();
+
+            // TODO: 使用 qrcode_key 检查登录状态
         }
         free(qrcode_data);
+        free(qrcode_key);
     }
 
     void onLoginStatusTriggered() {

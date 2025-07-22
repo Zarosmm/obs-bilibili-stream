@@ -320,8 +320,8 @@ void bili_api_cleanup(void) {
 }
 
 // 获取登录二维码
-bool bili_get_qrcode(char** qrcode_data) {
-    HttpResponse* response = http_get_with_headers("https://api.bilibili.com/x/web-interface/qrcode", default_headers);
+bool bili_get_qrcode(char** qrcode_data, char** qrcode_key) {
+    HttpResponse* response = http_get_with_headers("https://passport.bilibili.com/x/passport-login/web/qrcode/generate", default_headers);
     if (!response || response->status != 200) {
         obs_log(LOG_ERROR, "获取二维码失败，状态码: %ld", response ? response->status : 0);
         http_response_free(response);
@@ -330,16 +330,55 @@ bool bili_get_qrcode(char** qrcode_data) {
 
     // 解析 data.url
     char* url = extract_nested_json_field(response->data, "\"data\":", "\"url\":");
+
+    char* key = extract_nested_json_field(response->data, "\"data\":", "\"qrcode_key\":");
     if (!url) {
         obs_log(LOG_ERROR, "无法解析 JSON 中的 'data.url' 字段");
         http_response_free(response);
         return false;
     }
+    if (!key) {
+        obs_log(LOG_ERROR, "无法解析 JSON 中的 'data.qrcode_key' 字段");
+        http_response_free(response);
+        return false;
+    }
+
 
     *qrcode_data = url;
+    *qrcode_key = key;
     http_response_free(response);
     obs_log(LOG_INFO, "获取二维码成功");
     return true;
+}
+
+// 检查二维码情况
+bool bili_qr_login(char** qrcode_key) {
+    char qr_login_url[2048];
+    snprintf(qr_login_url, sizeof(qr_login_url), "https://passport.bilibili.com/x/passport-login/web/qrcode/poll?qrcode_key?qrcode_key=%s", qrcode_key);
+    HttpResponse* response = http_get_with_headers(qr_login_url, default_headers);
+    if (!response || response->status != 200) {
+        obs_log(LOG_ERROR, "获取二维码失败，状态码: %ld", response ? response->status : 0);
+        http_response_free(response);
+        return false;
+    }
+
+    // 解析 data.code
+    char* code = extract_nested_json_field(response->data, "\"data\":", "\"code\":");
+    if (!code) {
+        obs_log(LOG_ERROR, "无法解析 JSON 中的 'data.code' 字段");
+        http_response_free(response);
+        return false;
+    }
+
+    if (code != "0") {
+        obs_log(LOG_ERROR, "登录失败");
+        http_response_free(response);
+        return false;
+    } else {
+        http_response_free(response);
+        obs_log(LOG_INFO, "登录成功");
+        return true;
+    }
 }
 
 // 检查登录状态
