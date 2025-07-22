@@ -47,23 +47,23 @@ bool obs_module_load(void)
 	if (main_window == nullptr)
 		return false;
 
-        // 创建 QDockWidget
-        g_dock = new QDockWidget(obs_module_text("Title"), main_window);
-        g_dock->setObjectName("Bilibili Stream Code");
 
         // 创建菜单栏
         auto menuBar = main_window->menuBar();
 
+	auto bilibiliStream1 = menuBar->addMenu("Bilibili Stream1");
 
-	auto bilibiliStream = new QMenu("Bilibili Stream", menuBar);
+	auto bilibiliStream2 = new QMenu("Bilibili Stream2", menuBar);
 
         // 添加菜单
         // 菜单 1: 扫码
 
-	bilibiliStream->addSection("扫码登录");
+	bilibiliStream1->addSection("扫码登录");
+	bilibiliStream2->addSection("扫码登录");
 
         // 菜单 2: 登录状态
-        auto loginStatus = new QMenu("未登录", menuBar);
+        auto loginStatus1 = new QMenu("未登录", bilibiliStream1);
+	auto loginStatus2 = new QMenu("未登录", bilibiliStream2);
 
         // 菜单 3: 帮助
         auto pushStream = new QMenu("开始直播", menuBar);
