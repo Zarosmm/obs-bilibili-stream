@@ -87,3 +87,5 @@ void obs_module_unload(void)
     }
     obs_log(LOG_INFO, "插件已卸载");
 }
+
+#include "plugin-main.moc"
