@@ -59,7 +59,7 @@ bool obs_module_load(void)
         // 添加菜单
         // 菜单 1: 扫码
 
-	bilibili_steam->addSection("扫码登录")
+	bilibili_steam->addSection("扫码登录");
 
         // 菜单 2: 登录状态
         auto loginStatus = new QMenu("未登录", menuBar);
