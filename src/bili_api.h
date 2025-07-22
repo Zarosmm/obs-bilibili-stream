@@ -22,7 +22,7 @@ extern "C" {
     void bili_api_cleanup(void);
 
     // 获取登录二维码
-    bool bili_get_qrcode(char** qrcode_data);
+    bool bili_get_qrcode(char** qrcode_data, char** qrcode_key);
 
     // 检查二维码情况
     bool bili_qr_login(char** qrcode_key);
