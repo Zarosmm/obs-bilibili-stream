@@ -54,12 +54,13 @@ bool obs_module_load(void)
         // 创建菜单栏
         auto menuBar = main_window->menuBar();
 
-	auto bilibili_stream = new QMenu("Bilibili Stream", menuBar);
+
+	auto bilibiliStream = new QMenu("Bilibili Stream", menuBar);
 
         // 添加菜单
         // 菜单 1: 扫码
 
-	bilibili_steam->addSection("扫码登录");
+	bilibiliStream->addSection("扫码登录");
 
         // 菜单 2: 登录状态
         auto loginStatus = new QMenu("未登录", menuBar);
