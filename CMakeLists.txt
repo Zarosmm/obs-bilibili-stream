@@ -20,11 +20,9 @@ add_library(${CMAKE_PROJECT_NAME} MODULE
 find_package(libobs REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(CURL REQUIRED)
-find_package(json-c REQUIRED)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::libobs)
 target_link_libraries(CURL::libcurl)
 target_link_libraries(OpenSSL::Crypto)
-target_link_libraries(json-c::json-c)
 
 
 if(ENABLE_FRONTEND_API)
