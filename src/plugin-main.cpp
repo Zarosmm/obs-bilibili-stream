@@ -68,6 +68,7 @@ bool obs_module_load(void)
     QAction* scanQrcode = bilibiliMenu->addAction("扫码登录");
     QAction* loginStatus = bilibiliMenu->addAction("登录状态");
     loginStatus->setCheckable(true);
+    loginStatus->setEnabled(bool);
     QAction* pushStream = bilibiliMenu->addAction("开始直播");
 
     // 连接信号与槽
