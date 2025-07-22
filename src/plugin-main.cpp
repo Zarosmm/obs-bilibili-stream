@@ -48,12 +48,8 @@ bool obs_module_load(void)
 		return false;
 
         // 创建 QDockWidget
-        g_dock = new QDockWidget(obs_module_text("Title"), mainwin);
+        g_dock = new QDockWidget(obs_module_text("Title"), main_window);
         g_dock->setObjectName("Bilibili Stream Code");
-
-        // 创建内容 widget
-        auto contentWidget = new MultiOutputWidget(g_dock);
-        g_dock->setWidget(contentWidget);
 
         // 创建菜单栏
         auto menuBar = new QMenuBar(g_dock);
