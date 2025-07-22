@@ -23,12 +23,10 @@ add_library(${CMAKE_PROJECT_NAME} MODULE
 )
 
 find_package(libobs REQUIRED)
-find_package(OpenSSL REQUIRED)
 find_package(CURL REQUIRED)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
         OBS::libobs
         CURL::libcurl
-        OpenSSL::Crypto
 )
 
 if(ENABLE_FRONTEND_API)
@@ -57,15 +55,3 @@ set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_nam
 install(TARGETS ${CMAKE_PROJECT_NAME}
         LIBRARY DESTINATION "${CMAKE_INSTALL_PREFIX}/obs-plugins/64bit"
 )
-
-# Copy dependency DLLs to the plugin directory
-if(WIN32)
-  find_file(CURL_DLL NAMES libcurl.dll PATHS "${CURL_LIBRARY_DIRS}/../bin")
-  if (CURL_DLL)
-    install(TARGETS ${CURL_DLL} LIBRARY DESTINATION "${CMAKE_INSTALL_PREFIX}/obs-plugins/64bit")
-  endif ()
-  find_file(OPENSSL_DLL NAMES libcrypto-3-x64.dll PATHS "${OPENSSL_LIBRARY_DIRS}/../bin")
-  if (OPENSSL_DLL)
-    install(TARGETS ${OPENSSL_DLL} LIBRARY DESTINATION "${CMAKE_INSTALL_PREFIX}/obs-plugins/64bit")
-  endif ()
-endif()

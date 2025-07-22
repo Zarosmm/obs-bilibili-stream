@@ -94,42 +94,6 @@ static BilibiliStreamPlugin* plugin = nullptr;
 
 bool obs_module_load(void)
 {
-    // Diagnostic logging for DLL dependencies
-    HMODULE hModule = LoadLibraryW(L"C:\\ProgramData\\obs-studio\\plugins\\bilibili-stream-for-obs\\bin\\64bit\\bilibili-stream-for-obs.dll");
-    if (!hModule) {
-        DWORD errorCode = GetLastError();
-        char errorMsg[512];
-        FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                       NULL, errorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                       errorMsg, sizeof(errorMsg), NULL);
-        obs_log(LOG_ERROR, "Failed to load bilibili-stream-for-obs.dll: Error %lu: %s", errorCode, errorMsg);
-
-        // Try loading known dependencies to identify the missing one
-        const char* dependencies[] = {
-            "libcurl.dll",
-            "libcrypto-3-x64.dll",
-            "Qt6Core.dll",
-            "Qt6Widgets.dll",
-            "Qt6Gui.dll",
-            "obs.dll",
-            "libobs-frontend-api.dll",
-            NULL
-        };
-        for (int i = 0; dependencies[i]; i++) {
-            HMODULE depModule = LoadLibraryA(dependencies[i]);
-            if (!depModule) {
-                DWORD depErrorCode = GetLastError();
-                FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-                               NULL, depErrorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-                               errorMsg, sizeof(errorMsg), NULL);
-                obs_log(LOG_ERROR, "Failed to load dependency %s: Error %lu: %s", dependencies[i], depErrorCode, errorMsg);
-            } else {
-                FreeLibrary(depModule);
-            }
-        }
-    } else {
-        FreeLibrary(hModule); // Free the module after testing
-    }
 
     // Initialize Bilibili API
     bili_api_init();
