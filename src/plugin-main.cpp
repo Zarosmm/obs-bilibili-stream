@@ -32,19 +32,19 @@ static void on_menu_action_triggered(void *data)
 
 bool obs_module_load(void)
 {
-	// 获取 OBS 前端主窗口
+	// 获取 OBS 主窗口
 	QMainWindow *main_window = (QMainWindow *)obs_frontend_get_main_window();
 
-	// 创建 QAction（菜单项）
-	QAction *menu_action = new QAction("BiliBili直播码", main_window);
+	// 添加菜单项，传递菜单标签
+	void *action_ptr = obs_frontend_add_tools_menu_qaction("Bilibili Stream");
+
+	// 将 void* 转换为 QAction*
+	QAction *menu_action = static_cast<QAction *>(action_ptr);
 
 	// 连接 QAction 的触发信号到回调函数
-	QObject::connect(menu_action, &QAction::triggered, [](bool) {
+	QObject::connect(menu_action, &QAction::triggered, []() {
 	    on_menu_action_triggered(nullptr);
 	});
-
-	// 将 QAction 添加到 OBS 的“工具”菜单
-	obs_frontend_add_tools_menu_qaction(menu_action);
 
 	blog(LOG_INFO, "插件加载成功，菜单已添加");
 	return true;
