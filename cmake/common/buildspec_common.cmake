@@ -172,6 +172,8 @@ function(_check_dependencies)
 
     if(dependency STREQUAL obs-studio)
       set(url ${url}/${file})
+    elseif (dependency STREQUAL qzxing)
+      set(url ${url}/v{version}/${file})
     else()
       set(url ${url}/${version}/${file})
     endif()
