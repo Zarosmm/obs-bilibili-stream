@@ -33,31 +33,24 @@ OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
 
 class BilibiliStreamPlugin : public QObject {
 	Q_OBJECT
-	public:
-
+    public:
 	explicit BilibiliStreamPlugin(QObject* parent = nullptr) : QObject(parent) {}
 
-	public slots:
-		void onScanQrcodeTriggered() {
-			obs_log(LOG_INFO, "扫码登录菜单项被点击");
-			// 在此处添加扫码逻辑
-		}
+public slots:
+    void onScanQrcodeTriggered() {
+		obs_log(LOG_INFO, "扫码登录菜单项被点击");
+	}
 
-		void onLoginStatusTriggered() {
-			obs_log(LOG_INFO, "登录状态菜单项被点击");
-			// 在此处添加登录状态检查逻辑
-		}
+	void onLoginStatusTriggered() {
+		obs_log(LOG_INFO, "登录状态菜单项被点击");
+	}
 
-		void onPushStreamTriggered() {
-			obs_log(LOG_INFO, "开始直播菜单项被点击");
-			// 在此处添加开始直播逻辑
-		}
+	void onPushStreamTriggered() {
+		obs_log(LOG_INFO, "开始直播菜单项被点击");
+	}
 };
 
-static void on_menu_action_triggered(void *data)
-{
-	obs_log(LOG_INFO, "菜单项被点击");
-}
+static BilibiliStreamPlugin* plugin = nullptr;
 
 bool obs_module_load(void)
 {
@@ -72,19 +65,6 @@ bool obs_module_load(void)
 
 	auto bilibiliStream = menuBar->addMenu("Bilibili Stream");
 
-        // 添加菜单
-        // 菜单 1: 扫码
-
-	auto scanQrcode = bilibiliStream->addSection("扫码登录");
-
-
-        // 菜单 2: 登录状态
-        auto loginStatus = bilibiliStream->addSection("未登录");
-	loginStatus->setCheckable(true);
-
-        // 菜单 3: 开始直播
-        auto pushStream = bilibiliStream->addSection("开始直播");
-
 	// 创建插件对象用于处理槽函数
 	auto plugin = new BilibiliStreamPlugin(main_window);
 
@@ -98,26 +78,6 @@ bool obs_module_load(void)
 
 	QAction* pushStream = bilibiliStream->addAction("开始直播");
 	QObject::connect(pushStream, &QAction::triggered, plugin, &BilibiliStreamPlugin::onPushStreamTriggered);
-
-	QObject::connect(scanQrcode, &QAction::triggered, scanQrcode, on_menu_action_triggered);
-        //QObject::connect(actionLoad, &QAction::triggered, [contentWidget]() {
-        //    contentWidget->LoadConfig();
-        //    blog(LOG_INFO, "加载配置");
-        //});
-        //QObject::connect(actionStartAll, &QAction::triggered, [contentWidget]() {
-        //    for (auto x : contentWidget->GetAllPushWidgets())
-        //        x->StartStreaming();
-        //    blog(LOG_INFO, "全部开始推流");
-        //});
-        //QObject::connect(actionStopAll, &QAction::triggered, [contentWidget]() {
-        //    for (auto x : contentWidget->GetAllPushWidgets())
-        //        x->StopStreaming();
-        //    blog(LOG_INFO, "全部停止推流");
-        //});
-        //QObject::connect(actionAbout, &QAction::triggered, []() {
-        //    blog(LOG_INFO, "关于菜单被点击");
-        //    // 可以弹出关于对话框
-        //});
 
 	obs_log(LOG_INFO, "插件加载成功，菜单已添加");
 	return true;
