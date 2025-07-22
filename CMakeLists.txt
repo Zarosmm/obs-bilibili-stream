@@ -11,16 +11,22 @@ include(compilerconfig)
 include(defaults)
 include(helpers)
 
+configure_file(src/plugin-support.c.in src/plugin-support.c @ONLY)
+
 add_library(${CMAKE_PROJECT_NAME} MODULE
         src/http_client.h
         src/http_client.c
         src/bili_api.c
-        src/bili_api.h)
+        src/bili_api.h
+        src/plugin-main.cpp
+        ${CMAKE_CURRENT_BINARY_DIR}/src/plugin-support.c
+)
 
 find_package(libobs REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(CURL REQUIRED)
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::libobs
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
+        OBS::libobs
         CURL::libcurl
         OpenSSL::Crypto
 )
@@ -46,3 +52,30 @@ endif()
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/plugin-main.cpp)
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})
+
+# Install plugin and dependencies
+install(TARGETS ${CMAKE_PROJECT_NAME}
+        LIBRARY DESTINATION "${CMAKE_INSTALL_PREFIX}/obs-plugins/64bit"
+)
+
+# Copy dependency DLLs to the plugin directory
+if(WIN32)
+  find_file(CURL_DLL NAMES libcurl.dll PATHS "${CURL_LIBRARY_DIRS}/../bin")
+  find_file(OPENSSL_DLL NAMES libcrypto-3-x64.dll PATHS "${OPENSSL_LIBRARY_DIRS}/../bin")
+  find_file(QT6CORE_DLL NAMES Qt6Core.dll PATHS "${Qt6_DIR}/../../bin")
+  find_file(QT6WIDGETS_DLL NAMES Qt6Widgets.dll PATHS "${Qt6_DIR}/../../bin")
+  find_file(QT6GUI_DLL NAMES Qt6Gui.dll PATHS "${Qt6_DIR}/../../bin")
+
+  if(CURL_DLL AND OPENSSL_DLL AND QT6CORE_DLL AND QT6WIDGETS_DLL AND QT6GUI_DLL)
+    install(FILES
+            ${CURL_DLL}
+            ${OPENSSL_DLL}
+            ${QT6CORE_DLL}
+            ${QT6WIDGETS_DLL}
+            ${QT6GUI_DLL}
+            DESTINATION "${CMAKE_INSTALL_PREFIX}/obs-plugins/64bit"
+    )
+  else()
+    message(WARNING "Some dependency DLLs not found; ensure libcurl.dll, libcrypto-3-x64.dll, Qt6Core.dll, Qt6Widgets.dll, and Qt6Gui.dll are available")
+  endif()
+endif()
