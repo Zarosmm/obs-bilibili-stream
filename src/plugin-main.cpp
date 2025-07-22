@@ -1,3 +1,21 @@
+/*
+Plugin Name
+Copyright (C) 2025 <Developer> <Email Address>
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License along
+with this program. If not, see <https://www.gnu.org/licenses/>
+*/
+
 #include <obs-module.h>
 #include <plugin-support.h>
 #include <obs-frontend-api.h>
@@ -5,10 +23,11 @@
 #include <QMainWindow>
 #include <QMenuBar>
 #include <QMenu>
+#include <windows.h>
 #include "bili_api.h"
 
 OBS_DECLARE_MODULE()
-OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
+OBS_MODULE_USE_DEFAULT_LOCALE("bilibili-stream-for-obs", "zh-CN")
 
 class BilibiliStreamPlugin : public QObject {
     Q_OBJECT
@@ -75,7 +94,44 @@ static BilibiliStreamPlugin* plugin = nullptr;
 
 bool obs_module_load(void)
 {
-    // 初始化 Bilibili API
+    // Diagnostic logging for DLL dependencies
+    HMODULE hModule = LoadLibraryW(L"C:\\ProgramData\\obs-studio\\plugins\\bilibili-stream-for-obs\\bin\\64bit\\bilibili-stream-for-obs.dll");
+    if (!hModule) {
+        DWORD errorCode = GetLastError();
+        char errorMsg[512];
+        FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                       NULL, errorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                       errorMsg, sizeof(errorMsg), NULL);
+        obs_log(LOG_ERROR, "Failed to load bilibili-stream-for-obs.dll: Error %lu: %s", errorCode, errorMsg);
+
+        // Try loading known dependencies to identify the missing one
+        const char* dependencies[] = {
+            "libcurl.dll",
+            "libcrypto-3-x64.dll",
+            "Qt6Core.dll",
+            "Qt6Widgets.dll",
+            "Qt6Gui.dll",
+            "obs.dll",
+            "libobs-frontend-api.dll",
+            NULL
+        };
+        for (int i = 0; dependencies[i]; i++) {
+            HMODULE depModule = LoadLibraryA(dependencies[i]);
+            if (!depModule) {
+                DWORD depErrorCode = GetLastError();
+                FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                               NULL, depErrorCode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                               errorMsg, sizeof(errorMsg), NULL);
+                obs_log(LOG_ERROR, "Failed to load dependency %s: Error %lu: %s", dependencies[i], depErrorCode, errorMsg);
+            } else {
+                FreeLibrary(depModule);
+            }
+        }
+    } else {
+        FreeLibrary(hModule); // Free the module after testing
+    }
+
+    // Initialize Bilibili API
     bili_api_init();
 
     // 获取 OBS 主窗口
@@ -117,7 +173,7 @@ void obs_module_unload(void)
         delete plugin;
         plugin = nullptr;
     }
-    // 清理 Bilibili API
+    // Cleanup Bilibili API
     bili_api_cleanup();
     obs_log(LOG_INFO, "插件已卸载");
 }
