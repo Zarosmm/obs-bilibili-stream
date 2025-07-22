@@ -61,21 +61,11 @@ install(TARGETS ${CMAKE_PROJECT_NAME}
 # Copy dependency DLLs to the plugin directory
 if(WIN32)
   find_file(CURL_DLL NAMES libcurl.dll PATHS "${CURL_LIBRARY_DIRS}/../bin")
+  if (CURL_DLL)
+    install(FILE ${CURL_DLL} DESTINATION "${CMAKE_INSTALL_PREFIX}/obs-plugins/64bit")
+  endif ()
   find_file(OPENSSL_DLL NAMES libcrypto-3-x64.dll PATHS "${OPENSSL_LIBRARY_DIRS}/../bin")
-  find_file(QT6CORE_DLL NAMES Qt6Core.dll PATHS "${Qt6_DIR}/../../bin")
-  find_file(QT6WIDGETS_DLL NAMES Qt6Widgets.dll PATHS "${Qt6_DIR}/../../bin")
-  find_file(QT6GUI_DLL NAMES Qt6Gui.dll PATHS "${Qt6_DIR}/../../bin")
-
-  if(CURL_DLL AND OPENSSL_DLL AND QT6CORE_DLL AND QT6WIDGETS_DLL AND QT6GUI_DLL)
-    install(FILES
-            ${CURL_DLL}
-            ${OPENSSL_DLL}
-            ${QT6CORE_DLL}
-            ${QT6WIDGETS_DLL}
-            ${QT6GUI_DLL}
-            DESTINATION "${CMAKE_INSTALL_PREFIX}/obs-plugins/64bit"
-    )
-  else()
-    message(WARNING "Some dependency DLLs not found; ensure libcurl.dll, libcrypto-3-x64.dll, Qt6Core.dll, Qt6Widgets.dll, and Qt6Gui.dll are available")
-  endif()
+  if (OPENSSL_DLL)
+    install(FILE ${OPENSSL_DLL} DESTINATION "${CMAKE_INSTALL_PREFIX}/obs-plugins/64bit")
+  endif ()
 endif()
