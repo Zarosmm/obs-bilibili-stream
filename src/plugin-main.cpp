@@ -53,7 +53,7 @@ bool obs_module_load(void)
         // 添加菜单
         // 菜单 1: 扫码
 
-	auto scanQrcode = bilibiliStream1->addMenu("扫码登录");
+	auto scanQrcode = bilibiliStream->addMenu("扫码登录");
 
 
         // 菜单 2: 登录状态
