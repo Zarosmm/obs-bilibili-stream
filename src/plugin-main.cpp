@@ -21,69 +21,69 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <obs-frontend-api.h>
 #include <QAction>
 #include <QMainWindow>
-#include <QDockWidget>
 #include <QMenuBar>
 #include <QMenu>
-#include <QVBoxLayout>
-#include <QLabel>
-#include <QThread>
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
 
 class BilibiliStreamPlugin : public QObject {
-	Q_OBJECT
-    public:
-	explicit BilibiliStreamPlugin(QObject* parent = nullptr) : QObject(parent) {}
+    Q_OBJECT
+public:
+    explicit BilibiliStreamPlugin(QObject* parent = nullptr) : QObject(parent) {}
 
 public slots:
     void onScanQrcodeTriggered() {
-		obs_log(LOG_INFO, "扫码登录菜单项被点击");
-	}
+        obs_log(LOG_INFO, "扫码登录菜单项被点击");
+    }
 
-	void onLoginStatusTriggered() {
-		obs_log(LOG_INFO, "登录状态菜单项被点击");
-	}
+    void onLoginStatusTriggered() {
+        obs_log(LOG_INFO, "登录状态菜单项被点击");
+    }
 
-	void onPushStreamTriggered() {
-		obs_log(LOG_INFO, "开始直播菜单项被点击");
-	}
+    void onPushStreamTriggered() {
+        obs_log(LOG_INFO, "开始直播菜单项被点击");
+    }
 };
 
 static BilibiliStreamPlugin* plugin = nullptr;
 
 bool obs_module_load(void)
 {
-	// 获取 OBS 主窗口
-	auto main_window = (QMainWindow *)obs_frontend_get_main_window();
-	if (main_window == nullptr)
-		return false;
+    // 获取 OBS 主窗口
+    auto main_window = (QMainWindow*)obs_frontend_get_main_window();
+    if (!main_window) {
+        obs_log(LOG_ERROR, "无法获取 OBS 主窗口");
+        return false;
+    }
 
+    // 创建菜单
+    auto menuBar = main_window->menuBar();
+    auto bilibiliMenu = menuBar->addMenu("Bilibili直播");
 
-        // 创建菜单栏
-        auto menuBar = main_window->menuBar();
+    // 创建插件对象
+    plugin = new BilibiliStreamPlugin(main_window);
 
-	auto bilibiliStream = menuBar->addMenu("Bilibili Stream");
+    // 添加菜单项
+    QAction* scanQrcode = bilibiliMenu->addAction("扫码登录");
+    QAction* loginStatus = bilibiliMenu->addAction("登录状态");
+    loginStatus->setCheckable(true);
+    QAction* pushStream = bilibiliMenu->addAction("开始直播");
 
-	// 创建插件对象用于处理槽函数
-	auto plugin = new BilibiliStreamPlugin(main_window);
+    // 连接信号与槽
+    QObject::connect(scanQrcode, &QAction::triggered, plugin, &BilibiliStreamPlugin::onScanQrcodeTriggered);
+    QObject::connect(loginStatus, &QAction::triggered, plugin, &BilibiliStreamPlugin::onLoginStatusTriggered);
+    QObject::connect(pushStream, &QAction::triggered, plugin, &BilibiliStreamPlugin::onPushStreamTriggered);
 
-	// 添加菜单项
-	QAction* scanQrcode = bilibiliStream->addAction("扫码登录");
-	QObject::connect(scanQrcode, &QAction::triggered, plugin, &BilibiliStreamPlugin::onScanQrcodeTriggered);
-
-	QAction* loginStatus = bilibiliStream->addAction("未登录");
-	loginStatus->setCheckable(true);
-	QObject::connect(loginStatus, &QAction::triggered, plugin, &BilibiliStreamPlugin::onLoginStatusTriggered);
-
-	QAction* pushStream = bilibiliStream->addAction("开始直播");
-	QObject::connect(pushStream, &QAction::triggered, plugin, &BilibiliStreamPlugin::onPushStreamTriggered);
-
-	obs_log(LOG_INFO, "插件加载成功，菜单已添加");
-	return true;
+    obs_log(LOG_INFO, "插件加载成功，菜单已添加");
+    return true;
 }
 
 void obs_module_unload(void)
 {
-	obs_log(LOG_INFO, "plugin unloaded");
+    if (plugin) {
+        delete plugin;
+        plugin = nullptr;
+    }
+    obs_log(LOG_INFO, "插件已卸载");
 }
