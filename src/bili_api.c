@@ -354,7 +354,7 @@ bool bili_get_qrcode(char** qrcode_data, char** qrcode_key) {
 // 检查二维码情况
 bool bili_qr_login(char** qrcode_key) {
     char qr_login_url[2048];
-    snprintf(qr_login_url, sizeof(qr_login_url), "https://passport.bilibili.com/x/passport-login/web/qrcode/poll?qrcode_key?qrcode_key=%s", qrcode_key);
+    snprintf(qr_login_url, sizeof(qr_login_url), "https://passport.bilibili.com/x/passport-login/web/qrcode/poll?qrcode_key?qrcode_key=%s", *qrcode_key);
     HttpResponse* response = http_get_with_headers(qr_login_url, default_headers);
     if (!response || response->status != 200) {
         obs_log(LOG_ERROR, "获取二维码失败，状态码: %ld", response ? response->status : 0);

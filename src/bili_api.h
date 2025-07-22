@@ -24,6 +24,9 @@ extern "C" {
     // 获取登录二维码
     bool bili_get_qrcode(char** qrcode_data);
 
+    // 检查二维码情况
+    bool bili_qr_login(char** qrcode_key);
+
     // 检查登录状态
     bool bili_check_login_status(char** status_data);
 
