@@ -31,6 +31,28 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
 
+class BilibiliStreamPlugin : public QObject {
+	Q_OBJECT
+	public:
+
+	explicit BilibiliStreamPlugin(QObject* parent = nullptr) : QObject(parent) {}
+
+	public slots:
+		void onScanQrcodeTriggered() {
+			obs_log(LOG_INFO, "扫码登录菜单项被点击");
+			// 在此处添加扫码逻辑
+		}
+
+		void onLoginStatusTriggered() {
+			obs_log(LOG_INFO, "登录状态菜单项被点击");
+			// 在此处添加登录状态检查逻辑
+		}
+
+		void onPushStreamTriggered() {
+			obs_log(LOG_INFO, "开始直播菜单项被点击");
+			// 在此处添加开始直播逻辑
+		}
+};
 
 static void on_menu_action_triggered(void *data)
 {
@@ -62,6 +84,20 @@ bool obs_module_load(void)
 
         // 菜单 3: 开始直播
         auto pushStream = bilibiliStream->addSection("开始直播");
+
+	// 创建插件对象用于处理槽函数
+	auto plugin = new BilibiliStreamPlugin(main_window);
+
+	// 添加菜单项
+	QAction* scanQrcode = bilibiliStream->addAction("扫码登录");
+	QObject::connect(scanQrcode, &QAction::triggered, plugin, &BilibiliStreamPlugin::onScanQrcodeTriggered);
+
+	QAction* loginStatus = bilibiliStream->addAction("未登录");
+	loginStatus->setCheckable(true);
+	QObject::connect(loginStatus, &QAction::triggered, plugin, &BilibiliStreamPlugin::onLoginStatusTriggered);
+
+	QAction* pushStream = bilibiliStream->addAction("开始直播");
+	QObject::connect(pushStream, &QAction::triggered, plugin, &BilibiliStreamPlugin::onPushStreamTriggered);
 
 	QObject::connect(scanQrcode, &QAction::triggered, scanQrcode, on_menu_action_triggered);
         //QObject::connect(actionLoad, &QAction::triggered, [contentWidget]() {
