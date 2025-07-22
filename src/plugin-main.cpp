@@ -26,6 +26,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QMenu>
 #include <QVBoxLayout>
 #include <QLabel>
+#include <QThread>
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
@@ -33,25 +34,6 @@ OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
 // 全局 dock 指针
 static QDockWidget* g_dock = nullptr;
 
-// 全局服务实现
-static class GlobalServiceImpl : public GlobalService
-{
-	public:
-		bool RunInUIThread(std::function<void()> task) override {
-			if (uiThread_ == nullptr)
-				return false;
-			QMetaObject::invokeMethod(uiThread_, [func = std::move(task)]() {
-			    func();
-			});
-			return true;
-		}
-
-		QThread* uiThread_ = nullptr;
-} s_service;
-
-GlobalService& GetGlobalService() {
-	return s_service;
-}
 
 static void on_menu_action_triggered(void *data)
 {
@@ -64,66 +46,62 @@ bool obs_module_load(void)
 	auto main_window = (QMainWindow *)obs_frontend_get_main_window();
 	if (main_window == nullptr)
 		return false;
-	 // 设置 UI 线程
-    QMetaObject::invokeMethod(main_window, []() {
-        s_service.uiThread_ = QThread::currentThread();
-    });
 
-    // 创建 QDockWidget
-    g_dock = new QDockWidget(obs_module_text("Title"), mainwin);
-    g_dock->setObjectName("Bilibili Stream Code");
+        // 创建 QDockWidget
+        g_dock = new QDockWidget(obs_module_text("Title"), mainwin);
+        g_dock->setObjectName("Bilibili Stream Code");
 
-    // 创建内容 widget
-    auto contentWidget = new MultiOutputWidget(g_dock);
-    g_dock->setWidget(contentWidget);
+        // 创建内容 widget
+        auto contentWidget = new MultiOutputWidget(g_dock);
+        g_dock->setWidget(contentWidget);
 
-    // 创建菜单栏
-    auto menuBar = new QMenuBar(g_dock);
-    g_dock->setTitleBarWidget(menuBar);
+        // 创建菜单栏
+        auto menuBar = new QMenuBar(g_dock);
+        g_dock->setTitleBarWidget(menuBar);
 
-    // 添加菜单
-    // 菜单 1: 扫码
-    auto scanQrcode = new QMenu("扫码登录", menuBar);
-    menuBar->addMenu(scanQrcode);
+        // 添加菜单
+        // 菜单 1: 扫码
+        auto scanQrcode = new QMenu("扫码登录", menuBar);
+        menuBar->addMenu(scanQrcode);
 
-    // 菜单 2: 登录状态
-    auto loginStatus = new QMenu("未登录", menuBar);
-    menuBar->addMenu(loginStatus);
+        // 菜单 2: 登录状态
+        auto loginStatus = new QMenu("未登录", menuBar);
+        menuBar->addMenu(loginStatus);
 
-    // 菜单 3: 帮助
-    auto pushStream = new QMenu("开始直播", menuBar);
-    menuBar->addMenu(pushStream);
+        // 菜单 3: 帮助
+        auto pushStream = new QMenu("开始直播", menuBar);
+        menuBar->addMenu(pushStream);
 
-    // 连接菜单动作
-    //QObject::connect(actionSave, &QAction::triggered, [contentWidget]() {
-    //    contentWidget->SaveConfig();
-    //    blog(LOG_INFO, "保存配置");
-    //});
-    //QObject::connect(actionLoad, &QAction::triggered, [contentWidget]() {
-    //    contentWidget->LoadConfig();
-    //    blog(LOG_INFO, "加载配置");
-    //});
-    //QObject::connect(actionStartAll, &QAction::triggered, [contentWidget]() {
-    //    for (auto x : contentWidget->GetAllPushWidgets())
-    //        x->StartStreaming();
-    //    blog(LOG_INFO, "全部开始推流");
-    //});
-    //QObject::connect(actionStopAll, &QAction::triggered, [contentWidget]() {
-    //    for (auto x : contentWidget->GetAllPushWidgets())
-    //        x->StopStreaming();
-    //    blog(LOG_INFO, "全部停止推流");
-    //});
-    //QObject::connect(actionAbout, &QAction::triggered, []() {
-    //    blog(LOG_INFO, "关于菜单被点击");
-    //    // 可以弹出关于对话框
-    //});
+        // 连接菜单动作
+        //QObject::connect(actionSave, &QAction::triggered, [contentWidget]() {
+        //    contentWidget->SaveConfig();
+        //    blog(LOG_INFO, "保存配置");
+        //});
+        //QObject::connect(actionLoad, &QAction::triggered, [contentWidget]() {
+        //    contentWidget->LoadConfig();
+        //    blog(LOG_INFO, "加载配置");
+        //});
+        //QObject::connect(actionStartAll, &QAction::triggered, [contentWidget]() {
+        //    for (auto x : contentWidget->GetAllPushWidgets())
+        //        x->StartStreaming();
+        //    blog(LOG_INFO, "全部开始推流");
+        //});
+        //QObject::connect(actionStopAll, &QAction::triggered, [contentWidget]() {
+        //    for (auto x : contentWidget->GetAllPushWidgets())
+        //        x->StopStreaming();
+        //    blog(LOG_INFO, "全部停止推流");
+        //});
+        //QObject::connect(actionAbout, &QAction::triggered, []() {
+        //    blog(LOG_INFO, "关于菜单被点击");
+        //    // 可以弹出关于对话框
+        //});
 
-    // 添加 dock 到 OBS
-    if (!obs_frontend_add_custom_qdock("Bilibili Stream", g_dock)) {
-        delete g_dock;
-        g_dock = nullptr;
-        return false;
-    }
+        // 添加 dock 到 OBS
+        if (!obs_frontend_add_custom_qdock("Bilibili Stream", g_dock)) {
+            delete g_dock;
+            g_dock = nullptr;
+            return false;
+        }
 
 	obs_log(LOG_INFO, "插件加载成功，菜单已添加");
 	return true;
