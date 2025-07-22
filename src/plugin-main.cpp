@@ -48,22 +48,19 @@ bool obs_module_load(void)
         // 创建菜单栏
         auto menuBar = main_window->menuBar();
 
-	auto bilibiliStream1 = menuBar->addMenu("Bilibili Stream1");
-
-	auto bilibiliStream2 = new QMenu("Bilibili Stream2", menuBar);
+	auto bilibiliStream = menuBar->addMenu("Bilibili Stream");
 
         // 添加菜单
         // 菜单 1: 扫码
 
-	bilibiliStream1->addSection("扫码登录");
-	bilibiliStream2->addSection("扫码登录");
+	auto scanQrcode = bilibiliStream1->addMenu("扫码登录");
+
 
         // 菜单 2: 登录状态
-        auto loginStatus1 = new QMenu("未登录", bilibiliStream1);
-	auto loginStatus2 = new QMenu("未登录", bilibiliStream2);
+        auto loginStatus1 = bilibiliStream1->addMenu("未登录");
 
         // 菜单 3: 帮助
-        auto pushStream = new QMenu("开始直播", menuBar);
+        auto pushStream = bilibiliStream1->addMenu("开始直播");
 
         // 连接菜单动作
         //QObject::connect(actionSave, &QAction::triggered, [contentWidget]() {
