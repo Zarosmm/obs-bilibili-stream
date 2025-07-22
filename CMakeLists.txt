@@ -11,10 +11,21 @@ include(compilerconfig)
 include(defaults)
 include(helpers)
 
-add_library(${CMAKE_PROJECT_NAME} MODULE)
+add_library(${CMAKE_PROJECT_NAME} MODULE
+        src/http_client.h
+        src/http_client.c
+        src/bili_api.c
+        src/bili_api.h)
 
 find_package(libobs REQUIRED)
+find_package(OpenSSL REQUIRED)
+find_package(CURL REQUIRED)
+find_package(json-c REQUIRED)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::libobs)
+target_link_libraries(CURL::libcurl)
+target_link_libraries(OpenSSL::Crypto)
+target_link_libraries(json-c::json-c)
+
 
 if(ENABLE_FRONTEND_API)
   find_package(obs-frontend-api REQUIRED)
