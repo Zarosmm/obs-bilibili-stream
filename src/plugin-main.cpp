@@ -38,14 +38,6 @@ bool obs_module_load(void)
 	// 添加菜单项，传递菜单标签
 	void *action_ptr = obs_frontend_add_tools_menu_qaction("Bilibili Stream");
 
-	// 将 void* 转换为 QAction*
-	QAction *menu_action = static_cast<QAction *>(action_ptr);
-
-	// 连接 QAction 的触发信号到回调函数
-	QObject::connect(menu_action, &QAction::triggered, []() {
-	    on_menu_action_triggered(nullptr);
-	});
-
 	blog(LOG_INFO, "插件加载成功，菜单已添加");
 	return true;
 }
