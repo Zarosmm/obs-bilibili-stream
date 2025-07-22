@@ -73,7 +73,6 @@ bool obs_module_load(void)
 
     // 连接信号与槽
     QObject::connect(scanQrcode, &QAction::triggered, plugin, &BilibiliStreamPlugin::onScanQrcodeTriggered);
-    QObject::connect(loginStatus, &QAction::triggered, plugin, &BilibiliStreamPlugin::onLoginStatusTriggered);
     QObject::connect(pushStream, &QAction::triggered, plugin, &BilibiliStreamPlugin::onPushStreamTriggered);
 
     obs_log(LOG_INFO, "插件加载成功，菜单已添加");
