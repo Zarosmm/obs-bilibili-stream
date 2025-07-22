@@ -57,10 +57,10 @@ bool obs_module_load(void)
 
 
         // 菜单 2: 登录状态
-        auto loginStatus1 = bilibiliStream1->addMenu("未登录");
+        auto loginStatus = bilibiliStream->addMenu("未登录");
 
         // 菜单 3: 帮助
-        auto pushStream = bilibiliStream1->addMenu("开始直播");
+        auto pushStream = bilibiliStream->addMenu("开始直播");
 
         // 连接菜单动作
         //QObject::connect(actionSave, &QAction::triggered, [contentWidget]() {
