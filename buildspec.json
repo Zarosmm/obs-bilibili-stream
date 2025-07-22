@@ -31,7 +31,7 @@
             }
         },
         "qzxing": {
-            "version": "3.3.0",
+            "version": "v3.3.0",
             "baseUrl": "https://github.com/ftylitak/qzxing/archive/refs/tags",
             "label": "QZxing",
             "hashes": {
