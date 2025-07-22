@@ -31,9 +31,6 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
 
-// 全局 dock 指针
-static QDockWidget* g_dock = nullptr;
-
 
 static void on_menu_action_triggered(void *data)
 {
@@ -91,13 +88,6 @@ bool obs_module_load(void)
         //    blog(LOG_INFO, "关于菜单被点击");
         //    // 可以弹出关于对话框
         //});
-
-        // 添加 dock 到 OBS
-        if (!obs_frontend_add_custom_qdock("Bilibili Stream", g_dock)) {
-            delete g_dock;
-            g_dock = nullptr;
-            return false;
-        }
 
 	obs_log(LOG_INFO, "插件加载成功，菜单已添加");
 	return true;
