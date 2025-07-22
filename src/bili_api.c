@@ -9,12 +9,12 @@
 // MD5 implementation (public domain, based on standard MD5 algorithm)
 typedef struct {
     unsigned int state[4];
-    unsigned int count[2];
+    unsigned long long count[2]; // Changed to 64-bit to handle large inputs
     unsigned char buffer[64];
 } MD5_CTX;
 
 static void md5_init(MD5_CTX *context);
-static void md5_update(MD5_CTX *context, const unsigned char *input, unsigned int inputLen);
+static void md5_update(MD5_CTX *context, const unsigned char *input, size_t inputLen); // Use size_t
 static void md5_final(unsigned char digest[16], MD5_CTX *context);
 static void md5_transform(unsigned int state[4], const unsigned char block[64]);
 
@@ -83,12 +83,12 @@ static void md5_init(MD5_CTX *context) {
     context->state[3] = 0x10325476;
 }
 
-static void md5_update(MD5_CTX *context, const unsigned char *input, unsigned int inputLen) {
-    unsigned int i, index, partLen;
-    index = (unsigned int)((context->count[0] >> 3) & 0x3F);
-    if ((context->count[0] += ((unsigned int)inputLen << 3)) < ((unsigned int)inputLen << 3))
+static void md5_update(MD5_CTX *context, const unsigned char *input, size_t inputLen) {
+    size_t i, index, partLen;
+    index = (size_t)((context->count[0] >> 3) & 0x3F);
+    if ((context->count[0] += ((unsigned long long)inputLen << 3)) < ((unsigned long long)inputLen << 3))
         context->count[1]++;
-    context->count[1] += ((unsigned int)inputLen >> 29);
+    context->count[1] += ((unsigned long long)inputLen >> 29);
     partLen = 64 - index;
     if (inputLen >= partLen) {
         memcpy(&context->buffer[index], input, partLen);
@@ -104,7 +104,7 @@ static void md5_update(MD5_CTX *context, const unsigned char *input, unsigned in
 
 static void md5_final(unsigned char digest[16], MD5_CTX *context) {
     unsigned char bits[8];
-    unsigned int index, padLen;
+    size_t index, padLen;
     bits[0] = (unsigned char)(context->count[0] & 0xFF);
     bits[1] = (unsigned char)((context->count[0] >> 8) & 0xFF);
     bits[2] = (unsigned char)((context->count[0] >> 16) & 0xFF);
@@ -113,7 +113,7 @@ static void md5_final(unsigned char digest[16], MD5_CTX *context) {
     bits[5] = (unsigned char)((context->count[1] >> 8) & 0xFF);
     bits[6] = (unsigned char)((context->count[1] >> 16) & 0xFF);
     bits[7] = (unsigned char)((context->count[1] >> 24) & 0xFF);
-    index = (unsigned int)((context->count[0] >> 3) & 0x3f);
+    index = (size_t)((context->count[0] >> 3) & 0x3f);
     padLen = (index < 56) ? (56 - index) : (120 - index);
     md5_update(context, PADDING, padLen);
     md5_update(context, bits, 8);
