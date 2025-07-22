@@ -22,8 +22,8 @@ find_package(OpenSSL REQUIRED)
 find_package(CURL REQUIRED)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OBS::libobs
         CURL::libcurl
-        OpenSSL::Crypto)
-
+        OpenSSL::Crypto
+)
 
 if(ENABLE_FRONTEND_API)
   find_package(obs-frontend-api REQUIRED)

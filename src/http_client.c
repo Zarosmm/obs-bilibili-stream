@@ -1,6 +1,6 @@
-// http_client.c
 #include <obs-module.h>
 #include <curl/curl.h>
+#include <plugin-support.h>
 #include "http_client.h"
 
 // 回调函数，用于收集 HTTP 响应数据
@@ -57,8 +57,8 @@ HttpResponse* http_get_with_headers(const char* url, const char** headers) {
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
 
+    struct curl_slist* header_list = NULL;
     if (headers) {
-        struct curl_slist* header_list = NULL;
         for (int i = 0; headers[i]; i++) {
             header_list = curl_slist_append(header_list, headers[i]);
         }
@@ -70,13 +70,12 @@ HttpResponse* http_get_with_headers(const char* url, const char** headers) {
         obs_log(LOG_ERROR, "GET 请求失败: %s", curl_easy_strerror(res));
         free(response);
         curl_easy_cleanup(curl);
+        if (header_list) curl_slist_free_all(header_list);
         return NULL;
     }
 
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response->status);
-    if (headers) {
-        curl_slist_free_all(header_list);
-    }
+    if (header_list) curl_slist_free_all(header_list);
     curl_easy_cleanup(curl);
     return response;
 }
@@ -107,8 +106,8 @@ HttpResponse* http_post_with_headers(const char* url, const char* post_data, con
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, response);
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
 
+    struct curl_slist* header_list = NULL;
     if (headers) {
-        struct curl_slist* header_list = NULL;
         for (int i = 0; headers[i]; i++) {
             header_list = curl_slist_append(header_list, headers[i]);
         }
@@ -120,13 +119,12 @@ HttpResponse* http_post_with_headers(const char* url, const char* post_data, con
         obs_log(LOG_ERROR, "POST 请求失败: %s", curl_easy_strerror(res));
         free(response);
         curl_easy_cleanup(curl);
+        if (header_list) curl_slist_free_all(header_list);
         return NULL;
     }
 
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response->status);
-    if (headers) {
-        curl_slist_free_all(header_list);
-    }
+    if (header_list) curl_slist_free_all(header_list);
     curl_easy_cleanup(curl);
     return response;
 }

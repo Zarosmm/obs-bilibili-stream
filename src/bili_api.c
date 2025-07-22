@@ -1,7 +1,9 @@
 #include <obs-module.h>
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <openssl/md5.h>
+#include <plugin-support.h>
 #include "bili_api.h"
 #include "http_client.h"
 
