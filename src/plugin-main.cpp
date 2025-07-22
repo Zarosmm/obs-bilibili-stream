@@ -53,20 +53,17 @@ bool obs_module_load(void)
         // 添加菜单
         // 菜单 1: 扫码
 
-	auto scanQrcode = bilibiliStream->addMenu("扫码登录");
+	auto scanQrcode = bilibiliStream->addSection("扫码登录");
 
 
         // 菜单 2: 登录状态
-        auto loginStatus = bilibiliStream->addMenu("未登录");
+        auto loginStatus = bilibiliStream->addSection("未登录");
+	loginStatus->setCheckable(true);
 
-        // 菜单 3: 帮助
-        auto pushStream = bilibiliStream->addMenu("开始直播");
+        // 菜单 3: 开始直播
+        auto pushStream = bilibiliStream->addSection("开始直播");
 
-        // 连接菜单动作
-        //QObject::connect(actionSave, &QAction::triggered, [contentWidget]() {
-        //    contentWidget->SaveConfig();
-        //    blog(LOG_INFO, "保存配置");
-        //});
+	QObject::connect(scanQrcode, &QAction::triggered, scanQrcode, on_menu_action_triggered);
         //QObject::connect(actionLoad, &QAction::triggered, [contentWidget]() {
         //    contentWidget->LoadConfig();
         //    blog(LOG_INFO, "加载配置");
