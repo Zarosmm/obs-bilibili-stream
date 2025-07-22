@@ -18,6 +18,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 
 #include <obs-module.h>
 #include <plugin-support.h>
+#include <obs-frontend-api.h>
 #include <QAction>
 #include <QMainWindow>
 
@@ -26,7 +27,7 @@ OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
 
 static void on_menu_action_triggered(void *data)
 {
-	obs_log(LOG_INFO, "菜单项被点击")
+	obs_log(LOG_INFO, "菜单项被点击");
 }
 
 bool obs_module_load(void)
