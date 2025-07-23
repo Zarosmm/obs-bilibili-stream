@@ -596,8 +596,8 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
         return false;
     }
 	const auto& build_value = json["data"]["build"];
-    if (!now_value.is_number()) {
-        obs_log(LOG_ERROR, "data.now 不是有效数字");
+    if (!build_value.is_number()) {
+        obs_log(LOG_ERROR, "data.build 不是有效数字");
         return 0;
     }
     std::string build_str = std::to_string(build_value.int_value());
