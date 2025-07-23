@@ -8,6 +8,8 @@ typedef struct {
 	char* csrf_token;
 	char* cookies;
 	char* title;
+	bool* login_status;
+	bool* streaming;
 } BiliConfig;
 
 #ifdef __cplusplus
