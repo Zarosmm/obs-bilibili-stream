@@ -175,8 +175,6 @@ public slots:
 		        if (bili_qr_login(&qrcode_key)) {
 		                obs_log(LOG_INFO, "二维码登录成功，检查登录状态以获取 cookies");
 		                if (bili_check_login_status(config.cookies)) {
-		                        if (config.cookies) free(config.cookies);
-		                        config.cookies = new_cookies;
 		                        char* new_room_id = nullptr;
 		                        char* new_csrf_token = nullptr;
 					if (bili_get_room_id_and_csrf(config.cookies, &new_room_id, &new_csrf_token)) {
@@ -210,16 +208,8 @@ public slots:
                 obs_log(LOG_INFO, "登录状态菜单项被点击");
                 if (bili_check_login_status(config.cookies)) {
                         obs_log(LOG_INFO, "登录状态：已登录");
-                        if (config.cookies) {
-                        	    free(config.cookies);
-                        }
-                        config.cookies = new_cookies;
-                        obs_log(LOG_INFO, "更新 cookies: %s", config.cookies ? config.cookies : "无 cookies");
                 } else {
                         obs_log(LOG_WARNING, "登录状态：未登录");
-                        if (new_cookies) {
-    				free(new_cookies);
-                        }
                 }
         }
 
@@ -336,7 +326,7 @@ bool obs_module_load(void)
         QAction* scanQrcode = login->addAction("扫码登录");
         QAction* loginStatus = login->addAction("登录状态");
         loginStatus->setCheckable(true);
-	loginStatus->setEnable(false);
+	loginStatus->setEnabled(false);
         QAction* pushStream = bilibiliMenu->addAction("开始直播");
         QAction* stopStream = bilibiliMenu->addAction("停止直播");
         QAction* updateRoomInfo = bilibiliMenu->addAction("更新直播间信息");
