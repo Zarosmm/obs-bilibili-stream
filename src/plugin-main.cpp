@@ -173,7 +173,7 @@ public slots:
     static void onLoginStatusTriggered() {
         obs_log(LOG_INFO, "登录状态菜单项被点击");
         char* status_data = nullptr;
-        if (bili_check_login_status(&status_data)) {
+        if (bili_check_login_status(&config.cookies)) {
             obs_log(LOG_INFO, "登录状态数据: %s", status_data ? status_data : "无数据");
         }
         free(status_data);
@@ -256,13 +256,13 @@ bool obs_module_load(void)
 
 void obs_module_unload(void)
 {
-    if (plugin) {
-        delete plugin;
-        plugin = nullptr;
-    }
-    // Cleanup Bilibili API
-    bili_api_cleanup();
-    obs_log(LOG_INFO, "插件已卸载");
+	if (plugin) {
+		delete plugin;
+		plugin = nullptr;
+	}
+	// Cleanup Bilibili API
+	bili_api_cleanup();
+	obs_log(LOG_INFO, "插件已卸载");
 }
 
 #include "plugin-main.moc"

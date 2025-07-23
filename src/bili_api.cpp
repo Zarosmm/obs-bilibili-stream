@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <vector>
 #include <plugin-support.h>
 #include "bili_api.hpp"
 #include "http_client.h"
@@ -166,7 +167,7 @@ static void md5_transform(unsigned int state[4], const unsigned char block[64]) 
     state[0] += a; state[1] += b; state[2] += c; state[3] += d;
 }
 
-// 请求头
+// 默认请求头（不包含 Cookie，动态添加）
 static const char* default_headers[] = {
     "Accept: application/json, text/plain, */*",
     "Accept-Language: zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
@@ -191,12 +192,10 @@ typedef struct {
 
 // appsign 函数：为参数添加签名
 static void appsign(Param* params, size_t* param_count, const char* app_key, const char* app_sec) {
-    // 添加 appkey
     params[*param_count].key = strdup("appkey");
     params[*param_count].value = strdup(app_key);
     (*param_count)++;
 
-    // 按键排序
     for (size_t i = 0; i < *param_count - 1; i++) {
         for (size_t j = 0; j < *param_count - i - 1; j++) {
             if (strcmp(params[j].key, params[j + 1].key) > 0) {
@@ -207,7 +206,6 @@ static void appsign(Param* params, size_t* param_count, const char* app_key, con
         }
     }
 
-    // 序列化参数为 query 字符串
     char query[1024] = "";
     for (size_t i = 0; i < *param_count; i++) {
         if (i > 0) strncat(query, "&", sizeof(query) - strlen(query) - 1);
@@ -216,7 +214,6 @@ static void appsign(Param* params, size_t* param_count, const char* app_key, con
         strncat(query, params[i].value, sizeof(query) - strlen(query) - 1);
     }
 
-    // 计算 MD5 签名
     unsigned char md5_result[16];
     char md5_hex[33];
     char query_with_sec[2048];
@@ -230,21 +227,35 @@ static void appsign(Param* params, size_t* param_count, const char* app_key, con
     }
     md5_hex[32] = '\0';
 
-    // 添加签名到参数
     params[*param_count].key = strdup("sign");
     params[*param_count].value = strdup(md5_hex);
     (*param_count)++;
 
-    // 释放临时内存（除了最后一个 sign）
     for (size_t i = 0; i < *param_count - 1; i++) {
         free(params[i].key);
         free(params[i].value);
     }
 }
 
+// 动态构造包含 Cookie 的请求头
+static std::vector<const char*> build_headers_with_cookie(const char* cookies) {
+    std::vector<const char*> headers;
+    for (int i = 0; default_headers[i] != NULL; i++) {
+        headers.push_back(default_headers[i]);
+    }
+    if (cookies && strlen(cookies) > 0) {
+        static char cookie_header[2048];
+        snprintf(cookie_header, sizeof(cookie_header), "Cookie: %s", cookies);
+        headers.push_back(cookie_header);
+    }
+    headers.push_back(NULL); // 确保以 NULL 终止
+    return headers;
+}
+
 // 获取当前时间戳
-static long get_current_timestamp() {
-    HttpResponse* response = http_get_with_headers("https://api.bilibili.com/x/report/click/now", default_headers);
+static long get_current_timestamp(const char* cookies) {
+    auto headers = build_headers_with_cookie(cookies);
+    HttpResponse* response = http_get_with_headers("https://api.bilibili.com/x/report/click/now", headers.data());
     if (!response || response->status != 200) {
         obs_log(LOG_ERROR, "获取时间戳失败，状态码: %ld", response ? response->status : 0);
         http_response_free(response);
@@ -283,8 +294,9 @@ void bili_api_cleanup(void) {
 }
 
 // 获取登录二维码
-bool bili_get_qrcode(char** qrcode_data, char** qrcode_key) {
-    HttpResponse* response = http_get_with_headers("https://passport.bilibili.com/x/passport-login/web/qrcode/generate", default_headers);
+bool bili_get_qrcode(const char* cookies, char** qrcode_data, char** qrcode_key) {
+    auto headers = build_headers_with_cookie(cookies);
+    HttpResponse* response = http_get_with_headers("https://passport.bilibili.com/x/passport-login/web/qrcode/generate", headers.data());
     if (!response || response->status != 200) {
         obs_log(LOG_ERROR, "获取二维码失败，状态码: %ld", response ? response->status : 0);
         http_response_free(response);
@@ -326,10 +338,11 @@ bool bili_get_qrcode(char** qrcode_data, char** qrcode_key) {
 }
 
 // 检查二维码登录状态
-bool bili_qr_login(char** qrcode_key) {
+bool bili_qr_login(const char* cookies, char** qrcode_key) {
     char qr_login_url[2048];
     snprintf(qr_login_url, sizeof(qr_login_url), "https://passport.bilibili.com/x/passport-login/web/qrcode/poll?qrcode_key=%s", *qrcode_key);
-    HttpResponse* response = http_get_with_headers(qr_login_url, default_headers);
+    auto headers = build_headers_with_cookie(cookies);
+    HttpResponse* response = http_get_with_headers(qr_login_url, headers.data());
     if (!response || response->status != 200) {
         obs_log(LOG_ERROR, "检查二维码登录状态失败，状态码: %ld", response ? response->status : 0);
         http_response_free(response);
@@ -344,11 +357,17 @@ bool bili_qr_login(char** qrcode_key) {
         http_response_free(response);
         return false;
     }
-    obs_log(LOG_INFO, "%s", response->data);
-    // 检查 code 是否为 0
-    if (json["data"]["code"].int_value() != 0) {
-        obs_log(LOG_ERROR, "API 返回错误，code: %d, message: %s",
-                json["code"].int_value(), json["message"].string_value().c_str());
+
+    int code = json["data"]["code"].int_value();
+    if (code != 0) {
+        const char* message = json["message"].string_value().c_str();
+        if (code == 86038) {
+            obs_log(LOG_ERROR, "二维码已失效: %s", message);
+        } else if (code == 86090) {
+            obs_log(LOG_INFO, "二维码已扫描，等待确认");
+        } else {
+            obs_log(LOG_ERROR, "API 返回错误，code: %d, message: %s", code, message);
+        }
         http_response_free(response);
         return false;
     }
@@ -358,19 +377,48 @@ bool bili_qr_login(char** qrcode_key) {
     return true;
 }
 
-// 检查登录状态
-bool bili_check_login_status(char** status_data) {
-    HttpResponse* response = http_get_with_headers("https://api.bilibili.com/x/web-interface/nav", default_headers);
+// 检查登录状态并获取 cookies
+bool bili_check_login_status(char** cookies) {
+    auto headers = build_headers_with_cookie(input_cookies);
+    HttpResponse* response = http_get_with_headers("https://api.bilibili.com/x/web-interface/nav", headers.data());
     if (!response || response->status != 200) {
         obs_log(LOG_ERROR, "检查登录状态失败，状态码: %ld", response ? response->status : 0);
         http_response_free(response);
         return false;
     }
 
-    *status_data = strdup(response->data);
+    std::string err;
+    json11::Json json = json11::Json::parse(response->data, err);
+    if (!err.empty()) {
+        obs_log(LOG_ERROR, "JSON 解析失败: %s", err.c_str());
+        http_response_free(response);
+        return false;
+    }
+
+    bool is_login = json["data"]["isLogin"].bool_value();
+    if (!is_login) {
+        obs_log(LOG_WARNING, "用户未登录");
+        http_response_free(response);
+        return false;
+    }
+
+    // 从响应中提取 cookies
+    if (response->cookies && strlen(response->cookies) > 0) {
+        *output_cookies = strdup(response->cookies);
+        if (!*output_cookies) {
+            obs_log(LOG_ERROR, "内存分配失败，无法保存 cookies");
+            http_response_free(response);
+            return false;
+        }
+        obs_log(LOG_INFO, "获取 cookies 成功: %s", *output_cookies);
+    } else {
+        *output_cookies = NULL;
+        obs_log(LOG_WARNING, "响应中未找到 cookies");
+    }
+
     http_response_free(response);
-    obs_log(LOG_INFO, "检查登录状态成功");
-    return true;
+    obs_log(LOG_INFO, "检查登录状态成功，登录状态: %s", is_login ? "已登录" : "未登录");
+    return is_login;
 }
 
 // 启动直播
@@ -383,7 +431,7 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
     version_params[param_count].key = strdup("system_version");
     version_params[param_count].value = strdup("2");
     param_count++;
-    long ts = get_current_timestamp();
+    long ts = get_current_timestamp(config->cookies);
     if (ts == 0) return false;
     char ts_str[32];
     snprintf(ts_str, sizeof(ts_str), "%ld", ts);
@@ -407,7 +455,8 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
              "https://api.live.bilibili.com/xlive/app-blink/v1/liveVersionInfo/getHomePageLiveVersion?%s",
              version_query);
 
-    HttpResponse* version_response = http_get_with_headers(version_url, default_headers);
+    auto headers = build_headers_with_cookie(config->cookies);
+    HttpResponse* version_response = http_get_with_headers(version_url, headers.data());
     if (!version_response || version_response->status != 200) {
         obs_log(LOG_ERROR, "获取直播版本信息失败，状态码: %ld", version_response ? version_response->status : 0);
         http_response_free(version_response);
@@ -438,7 +487,8 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
              "room_id=%s&platform=pc_link&title=%s&csrf_token=%s&csrf=%s",
              config->room_id, config->title, config->csrf_token, config->csrf_token);
 
-    HttpResponse* title_response = http_post_with_headers("https://api.live.bilibili.com/room/v1/Room/update", title_data, default_headers);
+    headers = build_headers_with_cookie(config->cookies);
+    HttpResponse* title_response = http_post_with_headers("https://api.live.bilibili.com/room/v1/Room/update", title_data, headers.data());
     if (!title_response || title_response->status != 200) {
         obs_log(LOG_ERROR, "设置直播标题失败，状态码: %ld", title_response ? title_response->status : 0);
         http_response_free(title_response);
@@ -507,7 +557,8 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
         free(start_params[i].value);
     }
 
-    HttpResponse* response = http_post_with_headers("https://api.live.bilibili.com/room/v1/Room/startLive", start_data, default_headers);
+    headers = build_headers_with_cookie(config->cookies);
+    HttpResponse* response = http_post_with_headers("https://api.live.bilibili.com/room/v1/Room/startLive", start_data, headers.data());
     err.clear();
     json = json11::Json::parse(response->data, err);
     if (!err.empty()) {
@@ -548,7 +599,8 @@ bool bili_stop_live(BiliConfig* config) {
              "room_id=%s&platform=pc_link&csrf_token=%s&csrf=%s",
              config->room_id, config->csrf_token, config->csrf_token);
 
-    HttpResponse* response = http_post_with_headers("https://api.live.bilibili.com/room/v1/Room/stopLive", stop_data, default_headers);
+    auto headers = build_headers_with_cookie(config->cookies);
+    HttpResponse* response = http_post_with_headers("https://api.live.bilibili.com/room/v1/Room/stopLive", stop_data, headers.data());
     if (!response || response->status != 200) {
         obs_log(LOG_ERROR, "停止直播失败，状态码: %ld", response ? response->status : 0);
         http_response_free(response);
@@ -581,7 +633,8 @@ bool bili_update_room_info(BiliConfig* config, int area_id) {
              "room_id=%s&area_id=%d&activity_id=0&platform=pc_link&csrf_token=%s&csrf=%s",
              config->room_id, area_id, config->csrf_token, config->csrf_token);
 
-    HttpResponse* response = http_post_with_headers("https://api.live.bilibili.com/room/v1/Room/update", id_data, default_headers);
+    auto headers = build_headers_with_cookie(config->cookies);
+    HttpResponse* response = http_post_with_headers("https://api.live.bilibili.com/room/v1/Room/update", id_data, headers.data());
     if (!response || response->status != 200) {
         obs_log(LOG_ERROR, "更新直播间信息失败，状态码: %ld", response ? response->status : 0);
         http_response_free(response);
