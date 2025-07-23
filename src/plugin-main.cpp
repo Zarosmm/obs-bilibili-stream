@@ -23,10 +23,10 @@ class BilibiliStreamPlugin : public QObject {
     Q_OBJECT
 public:
     explicit BilibiliStreamPlugin(QObject* parent = nullptr) : QObject(parent) {
-        config.room_id = "12345";
-        config.csrf_token = "your_csrf_token";
+        config.room_id = nullptr;
+        config.csrf_token = nullptr;
         config.cookies = nullptr; // 初始化为 nullptr
-        config.title = "我的直播";
+        config.title = nullptr;
     }
 
     ~BilibiliStreamPlugin() {
