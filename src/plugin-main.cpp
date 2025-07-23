@@ -10,6 +10,8 @@
 #include <QVBoxLayout>
 #include <QTimer>
 #include <QPainter>
+#include <QLineEdit>
+#include <QPushButton>
 #include <windows.h>
 #include "qrcodegen/qrcodegen.hpp"
 #include "bili_api.hpp"
@@ -70,6 +72,56 @@ private:
     }
 
 public slots:
+    void onManualTriggered() {
+        obs_log(LOG_INFO, "手动登录菜单项被点击");
+
+        // 创建手动登录对话框
+        QDialog* loginDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
+        loginDialog->setWindowTitle("手动登录 - 输入Cookie");
+        QVBoxLayout* layout = new QVBoxLayout(loginDialog);
+
+        // 添加提示标签
+        QLabel* label = new QLabel("请输入Bilibili Cookie:", loginDialog);
+        layout->addWidget(label);
+
+        // 添加Cookie输入框
+        QLineEdit* cookieInput = new QLineEdit(loginDialog);
+        cookieInput->setPlaceholderText("在此输入Cookie");
+        layout->addWidget(cookieInput);
+
+        // 添加确认按钮
+        QPushButton* confirmButton = new QPushButton("确认", loginDialog);
+        layout->addWidget(confirmButton);
+
+        // 连接确认按钮的点击事件
+        QObject::connect(confirmButton, &QPushButton::clicked, [=]() {
+            QString cookie = cookieInput->text().trimmed();
+            if (cookie.isEmpty()) {
+                obs_log(LOG_WARNING, "Cookie 输入为空，未保存");
+                loginDialog->reject();
+                return;
+            }
+
+            // 释放旧的 config.cookies 内存
+            if (config.cookies) {
+                free(config.cookies);
+            }
+
+            // 将 QString 转换为 char* 并存储到 config.cookies
+            config.cookies = strdup(cookie.toUtf8().constData());
+            obs_log(LOG_INFO, "Cookie 已保存: %s", config.cookies);
+
+            loginDialog->accept();
+        });
+
+        // 对话框关闭时清理资源
+        QObject::connect(loginDialog, &QDialog::finished, [=]() {
+            loginDialog->deleteLater();
+        });
+
+        loginDialog->exec();
+    }
+
     void onScanQrcodeTriggered() {
         obs_log(LOG_INFO, "扫码登录菜单项被点击");
         char* qrcode_data = nullptr;
@@ -168,7 +220,6 @@ static BilibiliStreamPlugin* plugin = nullptr;
 
 bool obs_module_load(void)
 {
-
     // Initialize Bilibili API
     bili_api_init();
 
@@ -187,14 +238,17 @@ bool obs_module_load(void)
     plugin = new BilibiliStreamPlugin(main_window);
 
     // 添加菜单项
-    QAction* scanQrcode = bilibiliMenu->addAction("扫码登录");
-    QAction* loginStatus = bilibiliMenu->addAction("登录状态");
+    auto login = bilibiliMenu->addMenu("登录");
+    QAction* manual = login->addAction("手动登录");
+    QAction* scanQrcode = login->addAction("扫码登录");
+    QAction* loginStatus = login->addAction("登录状态");
     loginStatus->setCheckable(true);
     QAction* pushStream = bilibiliMenu->addAction("开始直播");
     QAction* stopStream = bilibiliMenu->addAction("停止直播");
     QAction* updateRoomInfo = bilibiliMenu->addAction("更新直播间信息");
 
     // 连接信号与槽
+    QObject::connect(manual, &QAction::triggered, plugin, &BilibiliStreamPlugin::onManualTriggered);
     QObject::connect(scanQrcode, &QAction::triggered, plugin, &BilibiliStreamPlugin::onScanQrcodeTriggered);
     QObject::connect(loginStatus, &QAction::triggered, plugin, &BilibiliStreamPlugin::onLoginStatusTriggered);
     QObject::connect(pushStream, &QAction::triggered, plugin, &BilibiliStreamPlugin::onPushStreamTriggered);
