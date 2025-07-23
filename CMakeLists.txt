@@ -16,8 +16,8 @@ configure_file(src/plugin-support.c.in src/plugin-support.c @ONLY)
 add_library(${CMAKE_PROJECT_NAME} MODULE
         src/http_client.h
         src/http_client.c
-        src/bili_api.c
-        src/bili_api.h
+        src/bili_api.cpp
+        src/bili_api.hpp
         src/plugin-main.cpp
         ${CMAKE_CURRENT_BINARY_DIR}/src/plugin-support.c
         src/qrcodegen/qrcodegen.cpp
