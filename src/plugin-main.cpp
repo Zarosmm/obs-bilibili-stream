@@ -303,93 +303,105 @@ static BilibiliStreamPlugin* plugin = nullptr;
 
 bool obs_module_load(void)
 {
-	// Initialize Bilibili API
-	bili_api_init();
-
-	// 从 OBS 数据库加载配置
-	obs_data_t* settings = obs_get_private_data();
-	if (settings) {
-		BiliConfig newConfig = {};
-		const char* room_id = obs_data_get_string(settings, "bilibili_room_id");
-		const char* csrf_token = obs_data_get_string(settings, "bilibili_csrf_token");
-		const char* cookies = obs_data_get_string(settings, "bilibili_cookies");
-		const char* title = obs_data_get_string(settings, "bilibili_title");
-		newConfig.room_id = room_id && strlen(room_id) > 0 ? strdup(room_id) : nullptr;
-		newConfig.csrf_token = csrf_token && strlen(csrf_token) > 0 ? strdup(csrf_token) : nullptr;
-		newConfig.cookies = cookies && strlen(cookies) > 0 ? strdup(cookies) : nullptr;
-		newConfig.title = title && strlen(title) > 0 ? strdup(title) : nullptr;
-
+        // Initialize Bilibili API
+        bili_api_init();
+        obs_log(LOG_DEBUG, "bili_api_init completed");
+    
+        // 获取 OBS 主窗口
+        auto main_window = (QMainWindow*)obs_frontend_get_main_window();
+        if (!main_window) {
+	            obs_log(LOG_ERROR, "无法获取 OBS 主窗口");
+	            return false;
+        }
+    
+        // 创建插件对象
+        plugin = new BilibiliStreamPlugin(main_window);
+        if (!plugin) {
+                obs_log(LOG_ERROR, "无法创建 BilibiliStreamPlugin 对象");
+                return false;
+        }
+    
+        // 从 OBS 数据库加载配置
+        obs_data_t* settings = obs_get_private_data();
+        if (settings) {
+                BiliConfig newConfig = {};
+                const char* room_id = obs_data_get_string(settings, "bilibili_room_id");
+                const char* csrf_token = obs_data_get_string(settings, "bilibili_csrf_token");
+                const char* cookies = obs_data_get_string(settings, "bilibili_cookies");
+                const char* title = obs_data_get_string(settings, "bilibili_title");
+    
+                newConfig.room_id = room_id && strlen(room_id) > 0 ? strdup(room_id) : nullptr;
+                newConfig.csrf_token = csrf_token && strlen(csrf_token) > 0 ? strdup(csrf_token) : nullptr;
+                newConfig.cookies = cookies && strlen(cookies) > 0 ? strdup(cookies) : nullptr;
+                newConfig.title = title && strlen(title) > 0 ? strdup(title) : nullptr;
+    
 		// 如果有 cookies，尝试获取 room_id 和 csrf_token
-		if (newConfig.cookies && strlen(newConfig.cookies) > 0) {
-			char* new_room_id = nullptr;
-			char* new_csrf_token = nullptr;
-			if (bili_get_room_id_and_csrf(newConfig.cookies, &new_room_id, &new_csrf_token)) {
-				if (newConfig.room_id) free((void*)newConfig.room_id);
-				if (newConfig.csrf_token) free((void*)newConfig.csrf_token);
-				newConfig.room_id = new_room_id;
-				newConfig.csrf_token = new_csrf_token;
-			} else {
+                if (newConfig.cookies && strlen(newConfig.cookies) > 0) {
+                        char* new_room_id = nullptr;
+                        char* new_csrf_token = nullptr;
+                        if (bili_get_room_id_and_csrf(newConfig.cookies, &new_room_id, &new_csrf_token)) {
+                                if (newConfig.room_id) free((void*)newConfig.room_id);
+                                if (newConfig.csrf_token) free((void*)newConfig.csrf_token);
+                                newConfig.room_id = new_room_id;
+                                newConfig.csrf_token = new_csrf_token;
+                        } else {
 				obs_log(LOG_WARNING, "无法通过 cookies 获取 room_id 和 csrf_token，使用数据库值或默认值");
-			}
-		}
+                        }
+                }
 		// Use default values for missing fields
-		if (!newConfig.room_id) newConfig.room_id = strdup("12345");
-		if (!newConfig.csrf_token) newConfig.csrf_token = strdup("your_csrf_token");
-		if (!newConfig.title) newConfig.title = strdup("我的直播");
-
-		plugin->setConfig(newConfig);
-		// Free temporary config strings
-		if (newConfig.room_id) free(newConfig.room_id);
-		if (newConfig.csrf_token) free(newConfig.csrf_token);
-		if (newConfig.cookies) free(newConfig.cookies);
-		if (newConfig.title) free(newConfig.title);
-
-		obs_log(LOG_INFO, "从 OBS 数据库加载配置: room_id=%s, csrf_token=%s, cookies=%s, title=%s",
-			plugin->getConfig().room_id, plugin->getConfig().csrf_token,
-			plugin->getConfig().cookies ? plugin->getConfig().cookies : "无",
-			plugin->getConfig().title);
-
-		obs_data_release(settings);
-	} else {
-		obs_log(LOG_WARNING, "无法从 OBS 数据库加载配置，使用默认配置");
-		// 创建插件对象，使用默认配置
-		plugin = new BilibiliStreamPlugin((QWidget*)obs_frontend_get_main_window());
-	}
-
-	// 获取 OBS 主窗口
-	auto main_window = (QMainWindow*)obs_frontend_get_main_window();
-	if (!main_window) {
-		obs_log(LOG_ERROR, "无法获取 OBS 主窗口");
-		return false;
-	}
-
-	// 创建菜单
-	auto menuBar = main_window->menuBar();
-	auto bilibiliMenu = menuBar->addMenu("Bilibili直播");
-
-	// 创建插件对象
-	plugin = new BilibiliStreamPlugin(main_window);
-
-	// 添加菜单项
-	auto login = bilibiliMenu->addMenu("登录");
-	QAction* manual = login->addAction("手动登录");
-	QAction* scanQrcode = login->addAction("扫码登录");
-	QAction* loginStatus = login->addAction("登录状态");
-	loginStatus->setCheckable(true);
-	QAction* pushStream = bilibiliMenu->addAction("开始直播");
-	QAction* stopStream = bilibiliMenu->addAction("停止直播");
-	QAction* updateRoomInfo = bilibiliMenu->addAction("更新直播间信息");
-
-	// 连接信号与槽
-	QObject::connect(manual, &QAction::triggered, plugin, &BilibiliStreamPlugin::onManualTriggered);
-	QObject::connect(scanQrcode, &QAction::triggered, plugin, &BilibiliStreamPlugin::onScanQrcodeTriggered);
-	QObject::connect(loginStatus, &QAction::triggered, plugin, &BilibiliStreamPlugin::onLoginStatusTriggered);
-	QObject::connect(pushStream, &QAction::triggered, plugin, &BilibiliStreamPlugin::onPushStreamTriggered);
-	QObject::connect(stopStream, &QAction::triggered, plugin, &BilibiliStreamPlugin::onStopStreamTriggered);
-	QObject::connect(updateRoomInfo, &QAction::triggered, plugin, &BilibiliStreamPlugin::onUpdateRoomInfoTriggered);
-
-	obs_log(LOG_INFO, "插件加载成功，菜单已添加");
-	return true;
+                if (!newConfig.room_id) newConfig.room_id = strdup("12345");
+                if (!newConfig.csrf_token) newConfig.csrf_token = strdup("your_csrf_token");
+                if (!newConfig.title) newConfig.title = strdup("我的直播");
+    
+                plugin->setConfig(newConfig);
+                // Free temporary config strings
+                if (newConfig.room_id) free(newConfig.room_id);
+                if (newConfig.csrf_token) free(newConfig.csrf_token);
+                if (newConfig.cookies) free(newConfig.cookies);
+                if (newConfig.title) free(newConfig.title);
+    
+                obs_log(LOG_INFO, "从 OBS 数据库加载配置: room_id=%s, csrf_token=%s, cookies=%s, title=%s",
+                        plugin->getConfig().room_id ? plugin->getConfig().room_id : "无",
+                        plugin->getConfig().csrf_token ? plugin->getConfig().csrf_token : "无",
+                        plugin->getConfig().cookies ? plugin->getConfig().cookies : "无",
+                        plugin->getConfig().title ? plugin->getConfig().title : "无");
+        
+                obs_data_release(settings);
+        } else {
+                obs_log(LOG_WARNING, "无法从 OBS 数据库加载配置，使用默认配置");
+                // 默认配置已在 BilibiliStreamPlugin 构造函数中设置
+        }
+    
+        // 创建菜单
+        auto menuBar = main_window->menuBar();
+        if (!menuBar) {
+                obs_log(LOG_ERROR, "无法获取菜单栏");
+                delete plugin;
+                plugin = nullptr;
+                return false;
+        }
+        auto bilibiliMenu = menuBar->addMenu("Bilibili直播");
+    
+        // 添加菜单项
+        auto login = bilibiliMenu->addMenu("登录");
+        QAction* manual = login->addAction("手动登录");
+        QAction* scanQrcode = login->addAction("扫码登录");
+        QAction* loginStatus = login->addAction("登录状态");
+        loginStatus->setCheckable(true);
+        QAction* pushStream = bilibiliMenu->addAction("开始直播");
+        QAction* stopStream = bilibiliMenu->addAction("停止直播");
+        QAction* updateRoomInfo = bilibiliMenu->addAction("更新直播间信息");
+    
+        // 连接信号与槽
+        QObject::connect(manual, &QAction::triggered, plugin, &BilibiliStreamPlugin::onManualTriggered);
+        QObject::connect(scanQrcode, &QAction::triggered, plugin, &BilibiliStreamPlugin::onScanQrcodeTriggered);
+        QObject::connect(loginStatus, &QAction::triggered, plugin, &BilibiliStreamPlugin::onLoginStatusTriggered);
+        QObject::connect(pushStream, &QAction::triggered, plugin, &BilibiliStreamPlugin::onPushStreamTriggered);
+        QObject::connect(stopStream, &QAction::triggered, plugin, &BilibiliStreamPlugin::onStopStreamTriggered);
+        QObject::connect(updateRoomInfo, &QAction::triggered, plugin, &BilibiliStreamPlugin::onUpdateRoomInfoTriggered);
+    
+        obs_log(LOG_INFO, "插件加载成功，菜单已添加");
+        return true;
 }
 
 void obs_module_unload(void)
