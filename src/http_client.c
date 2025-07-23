@@ -96,8 +96,8 @@ HttpResponse* http_get_with_headers(const char* url, const char** headers) {
     	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response->status);
     	curl_slist_free_all(header_list);
     	curl_easy_cleanup(curl);
-    	obs_log(LOG_INFO, "response data : %s", response->data);
-	obs_log(LOG_INFO, "response cookies : %s", response->cookies);
+	obs_log(LOG_INFO, "response data : %s", response->data ? response->data : "无数据");
+	obs_log(LOG_INFO, "response cookies : %s", response->cookies ? response->cookies : "无 cookies");
     return response;
 }
 
@@ -143,8 +143,8 @@ HttpResponse* http_post_with_headers(const char* url, const char* data, const ch
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response->status);
     curl_slist_free_all(header_list);
     curl_easy_cleanup(curl);
-    obs_log(LOG_INFO, "response %s", response->data);
-	obs_log(LOG_INFO, "response cookies : %s", response->cookies);
+	obs_log(LOG_INFO, "response data : %s", response->data ? response->data : "无数据");
+	obs_log(LOG_INFO, "response cookies : %s", response->cookies ? response->cookies : "无 cookies");
     return response;
 }
 

@@ -18,7 +18,7 @@
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
-
+static BilibiliStreamPlugin* plugin = nullptr;
 class BilibiliStreamPlugin : public QObject {
     Q_OBJECT
 public:
@@ -262,8 +262,6 @@ public slots:
                 }
         }
 };
-
-static BilibiliStreamPlugin* plugin = nullptr;
 
 bool obs_module_load(void)
 {
