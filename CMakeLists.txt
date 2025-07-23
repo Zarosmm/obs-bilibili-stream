@@ -22,6 +22,8 @@ add_library(${CMAKE_PROJECT_NAME} MODULE
         ${CMAKE_CURRENT_BINARY_DIR}/src/plugin-support.c
         src/qrcodegen/qrcodegen.cpp
         src/qrcodegen/qrcodegen.hpp
+        src/json11/json11.cpp
+        src/json11/json11.hpp
 )
 
 find_package(libobs REQUIRED)
