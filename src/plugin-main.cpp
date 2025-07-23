@@ -30,7 +30,7 @@ public:
 private:
     BiliConfig config;
 
-    QPixmap generateQrCodePixmap(const char* qrcode_data) {
+    static QPixmap generateQrCodePixmap(const char* qrcode_data) {
         if (!qrcode_data) {
             obs_log(LOG_ERROR, "二维码数据为空，无法生成二维码");
             return QPixmap();
@@ -40,6 +40,7 @@ private:
 
         // 使用 qrcodegen 生成二维码
         using qrcodegen::QrCode;
+
         const QrCode::Ecc errCorLvl = QrCode::Ecc::LOW; // 错误纠正级别
         const QrCode qr = QrCode::encodeText(qrcode_data, errCorLvl);
         if (qr.getSize() <= 0) {
@@ -122,7 +123,7 @@ public slots:
         qrDialog->exec();
     }
 
-    void onLoginStatusTriggered() {
+    static void onLoginStatusTriggered() {
         obs_log(LOG_INFO, "登录状态菜单项被点击");
         char* status_data = nullptr;
         if (bili_check_login_status(&status_data)) {
