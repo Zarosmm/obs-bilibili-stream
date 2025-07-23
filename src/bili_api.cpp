@@ -480,9 +480,23 @@ bool bili_get_room_id_and_csrf(const char* cookies, char** room_id, char** csrf_
         return false;
     }
 
+	const auto& room_id_value = json["data"]["room_id"];
+	if (room_id_value.is_null()) {
+		obs_log(LOG_ERROR, "data.room_id 字段不存在或为空");
+		return false;
+	}
+
+	std::string room_id_str;
+	if (room_id_value.is_number()) {
+		room_id_str = std::to_string(room_id_value.int_value());
+	} else {
+		obs_log(LOG_ERROR, "room_id 类型无效");
+		return false;
+	}
+
     // 提取 room_id
-    std::string room_id_int = json["data"]["room_id"].int_value();
-    room_id_str = std::to_string(room_id_value.int_value());
+    std::string room_id = json["data"]["room_id"];
+    std::string room_id_str = std::to_string(room_id_value.int_value());
     if (room_id_str.empty()) {
         obs_log(LOG_ERROR, "无法提取 data.room_id");
         return false;
