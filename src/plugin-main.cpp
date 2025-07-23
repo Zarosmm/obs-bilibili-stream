@@ -25,8 +25,27 @@ public:
     explicit BilibiliStreamPlugin(QObject* parent = nullptr) : QObject(parent) {
         config.room_id = "12345";
         config.csrf_token = "your_csrf_token";
-        config.cookies = "your_cookies";
+        config.cookies = nullptr; // 初始化为 nullptr
         config.title = "我的直播";
+    }
+
+    ~BilibiliStreamPlugin() {
+        if (config.cookies) {
+            free(config.cookies);
+            config.cookies = nullptr;
+        }
+        if (config.room_id) {
+            free(config.room_id);
+            config.room_id = nullptr;
+        }
+        if (config.csrf_token) {
+            free(config.csrf_token);
+            config.csrf_token = nullptr;
+        }
+        if (config.title) {
+            free(config.title);
+            config.title = nullptr;
+        }
     }
 
 private:
@@ -43,7 +62,7 @@ private:
         // 使用 qrcodegen 生成二维码
         using qrcodegen::QrCode;
 
-        constexpr QrCode::Ecc errCorLvl = QrCode::Ecc::LOW; // 错误纠正级别
+        const QrCode::Ecc errCorLvl = QrCode::Ecc::LOW; // 错误纠正级别
         const QrCode qr = QrCode::encodeText(qrcode_data, errCorLvl);
         if (qr.getSize() <= 0) {
             obs_log(LOG_ERROR, "qrcodegen 生成二维码失败");
@@ -86,7 +105,7 @@ public slots:
 
         // 添加Cookie输入框
         QLineEdit* cookieInput = new QLineEdit(loginDialog);
-        cookieInput->setPlaceholderText("在此输入Cookie");
+        cookieInput->setPlaceholderText("在此输入Cookie (如: bili_jct=xxx; SESSDATA=yyy)");
         layout->addWidget(cookieInput);
 
         // 添加确认按钮
@@ -100,6 +119,11 @@ public slots:
                 obs_log(LOG_WARNING, "Cookie 输入为空，未保存");
                 loginDialog->reject();
                 return;
+            }
+
+            // 释放旧的 config.cookies 内存
+            if (config.cookies) {
+                free(config.cookies);
             }
 
             // 将 QString 转换为 char* 并存储到 config.cookies
@@ -121,7 +145,7 @@ public slots:
         obs_log(LOG_INFO, "扫码登录菜单项被点击");
         char* qrcode_data = nullptr;
         char* qrcode_key = nullptr;
-        if (!bili_get_qrcode(&qrcode_data, &qrcode_key)) {
+        if (!bili_get_qrcode(config.cookies, &qrcode_data, &qrcode_key)) {
             obs_log(LOG_ERROR, "获取二维码失败");
             return;
         }
@@ -142,15 +166,25 @@ public slots:
             qrLabel->setPixmap(qrPixmap);
         }
         layout->addWidget(qrLabel);
-        QLabel* infoLabel = new QLabel(qrDialog);
+        QLabel* infoLabel = new QLabel("请使用Bilibili手机客户端扫描二维码登录", qrDialog);
         layout->addWidget(infoLabel);
         qrDialog->setLayout(layout);
 
         // 创建 QTimer 每秒检查登录状态
         QTimer* timer = new QTimer(qrDialog);
-        QObject::connect(timer, &QTimer::timeout, [qrDialog, timer, &qrcode_key]() mutable {
-            if (bili_qr_login(&qrcode_key)) {
-                obs_log(LOG_INFO, "二维码登录成功，关闭对话框");
+        QObject::connect(timer, &QTimer::timeout, [this, qrDialog, timer, &qrcode_key]() mutable {
+            if (bili_qr_login(config.cookies, &qrcode_key)) {
+                obs_log(LOG_INFO, "二维码登录成功，检查登录状态以获取 cookies");
+                char* new_cookies = nullptr;
+                if (bili_check_login_status(config.cookies, &new_cookies)) {
+                    if (new_cookies) {
+                        if (config.cookies) {
+                            free(config.cookies);
+                        }
+                        config.cookies = new_cookies;
+                        obs_log(LOG_INFO, "二维码登录后更新 cookies: %s", config.cookies);
+                    }
+                }
                 timer->stop();
                 qrDialog->accept();
             } else {
@@ -170,13 +204,26 @@ public slots:
         qrDialog->exec();
     }
 
-    static void onLoginStatusTriggered() {
+    void onLoginStatusTriggered() {
         obs_log(LOG_INFO, "登录状态菜单项被点击");
-        char* status_data = nullptr;
-        if (bili_check_login_status(&config.cookies)) {
-            obs_log(LOG_INFO, "登录状态数据: %s", status_data ? status_data : "无数据");
+        char* new_cookies = nullptr;
+        if (bili_check_login_status(config.cookies, &new_cookies)) {
+            obs_log(LOG_INFO, "登录状态：已登录");
+            if (new_cookies) {
+                if (config.cookies) {
+                    free(config.cookies);
+                }
+                config.cookies = new_cookies;
+                obs_log(LOG_INFO, "更新 cookies: %s", config.cookies ? config.cookies : "无 cookies");
+            } else {
+                obs_log(LOG_WARNING, "未获取到新的 cookies");
+            }
+        } else {
+            obs_log(LOG_WARNING, "登录状态：未登录");
+            if (new_cookies) {
+                free(new_cookies);
+            }
         }
-        free(status_data);
     }
 
     void onPushStreamTriggered() {
@@ -256,13 +303,13 @@ bool obs_module_load(void)
 
 void obs_module_unload(void)
 {
-	if (plugin) {
-		delete plugin;
-		plugin = nullptr;
-	}
-	// Cleanup Bilibili API
-	bili_api_cleanup();
-	obs_log(LOG_INFO, "插件已卸载");
+    if (plugin) {
+        delete plugin;
+        plugin = nullptr;
+    }
+    // Cleanup Bilibili API
+    bili_api_cleanup();
+    obs_log(LOG_INFO, "插件已卸载");
 }
 
 #include "plugin-main.moc"
