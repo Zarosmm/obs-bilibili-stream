@@ -417,11 +417,26 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
         return false;
     }
 
-    // 解析 data.build 和 data.curr_version
-    char* build_str = extract_nested_json_field(version_response->data, "\"data\":", "\"build\":");
-    char* curr_version = extract_nested_json_field(version_response->data, "\"data\":", "\"curr_version\":");
+    // 使用 json11 解析 JSON
+    std::string err;
+    json11::Json json = json11::Json::parse(version_response->data, err);
+    if (!err.empty()) {
+        obs_log(LOG_ERROR, "JSON 解析失败: %s", err.c_str());
+        http_response_free(version_response);
+        return false;
+    }
+
+    // 提取 data.build 和 data.curr_version
+    std::string build_str = json["data"]["build"].string_value();
+    std::string curr_version_str = json["data"]["curr_version"].string_value();
+    if (build_str.empty() || curr_version_str.empty()) {
+        obs_log(LOG_ERROR, "无法提取 data.build 或 data.curr_version");
+        http_response_free(version_response);
+        return false;
+    }
+
     long build = build_str ? atol(build_str) : 1234; // 默认值
-    if (!curr_version) curr_version = strdup("1.0.0"); // 默认值
+    if (!curr_version_str) curr_version_str = strdup("1.0.0"); // 默认值
     free(build_str);
     http_response_free(version_response);
 
@@ -435,17 +450,24 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
     if (!title_response || title_response->status != 200) {
         obs_log(LOG_ERROR, "设置直播标题失败，状态码: %ld", title_response ? title_response->status : 0);
         http_response_free(title_response);
-        free(curr_version);
+        free(curr_version_str);
         return false;
     }
-
+    // 使用 json11 解析 JSON
+    std::string err;
+    json11::Json json = json11::Json::parse(title_response->data, err);
+    if (!err.empty()) {
+        obs_log(LOG_ERROR, "JSON 解析失败: %s", err.c_str());
+        http_response_free(title_response);
+        return false;
+    }
     // 检查 code
-    char* code_str = extract_json_field(title_response->data, "\"code\":");
+    std::string code_str = json["code"].string_value();
     if (code_str && atoi(code_str) != 0) {
         obs_log(LOG_ERROR, "设置直播标题失败，错误码: %s", code_str);
         free(code_str);
         http_response_free(title_response);
-        free(curr_version);
+        free(curr_version_str);
         return false;
     }
     free(code_str);
@@ -481,7 +503,7 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
     start_params[param_count].value = strdup(build_str_buf);
     param_count++;
     start_params[param_count].key = strdup("version");
-    start_params[param_count].value = strdup(curr_version);
+    start_params[param_count].value = strdup(curr_version_str);
     param_count++;
     snprintf(ts_str, sizeof(ts_str), "%ld", ts);
     start_params[param_count].key = strdup("ts");
@@ -498,18 +520,23 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
         free(start_params[i].key);
         free(start_params[i].value);
     }
-    free(curr_version);
+    free(curr_version_str);
 
     HttpResponse* response = http_post_with_headers("https://api.live.bilibili.com/room/v1/Room/startLive", start_data, default_headers);
+    // 使用 json11 解析 JSON
+    std::string err;
+    json11::Json json = json11::Json::parse(response->data, err);
+    if (!err.empty()) {
+        obs_log(LOG_ERROR, "JSON 解析失败: %s", err.c_str());
+        http_response_free(response);
+        return false;
+    }
     if (!response || response->status != 200) {
         obs_log(LOG_ERROR, "获取推流码失败，状态码: %ld", response ? response->status : 0);
         if (response) {
-            char* code_str = extract_json_field(response->data, "\"code\":");
+            std::string code_str = json["code"].string_value();
             if (code_str && atoi(code_str) == 60024) {
-                char* qr = extract_nested_json_field(response->data, "\"data\":", "\"qr\":");
                 obs_log(LOG_ERROR, "获取推流码失败: 需要人脸认证, 二维码: %s", qr ? qr : "无二维码数据");
-                free(qr);
-                // TODO: 显示二维码
             } else if (code_str) {
                 obs_log(LOG_ERROR, "获取推流码失败，错误码: %s", code_str);
             }
@@ -520,8 +547,8 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
     }
 
     // 解析 data.rtmp.addr 和 data.rtmp.code
-    *rtmp_addr = extract_nested_json_field(response->data, "\"rtmp\":", "\"addr\":");
-    *rtmp_code = extract_nested_json_field(response->data, "\"rtmp\":", "\"code\":");
+    *rtmp_addr = json["rtmp"]["addr"].string_value();
+    *rtmp_code = json["rtmp"]["code"].string_value();
     if (!*rtmp_addr || !*rtmp_code) {
         obs_log(LOG_ERROR, "无法解析 JSON 中的 'data.rtmp.addr' 或 'data.rtmp.code' 字段");
         free(*rtmp_addr);
@@ -549,8 +576,17 @@ bool bili_stop_live(BiliConfig* config) {
         return false;
     }
 
+    // 使用 json11 解析 JSON
+    std::string err;
+    json11::Json json = json11::Json::parse(response->data, err);
+    if (!err.empty()) {
+        obs_log(LOG_ERROR, "JSON 解析失败: %s", err.c_str());
+        http_response_free(response);
+        return false;
+    }
+
     // 检查 code
-    char* code_str = extract_json_field(response->data, "\"code\":");
+    char* code_str = json["code"].string_value();
     if (code_str && atoi(code_str) != 0) {
         obs_log(LOG_ERROR, "停止直播失败，错误码: %s", code_str);
         free(code_str);
@@ -577,9 +613,16 @@ bool bili_update_room_info(BiliConfig* config, int area_id) {
         http_response_free(response);
         return false;
     }
-
+    // 使用 json11 解析 JSON
+    std::string err;
+    json11::Json json = json11::Json::parse(response->data, err);
+    if (!err.empty()) {
+        obs_log(LOG_ERROR, "JSON 解析失败: %s", err.c_str());
+        http_response_free(response);
+        return false;
+    }
     // 检查 code
-    char* code_str = extract_json_field(response->data, "\"code\":");
+    char* code_str = json["code"].string_value();
     if (code_str && atoi(code_str) != 0) {
         obs_log(LOG_ERROR, "更新直播间信息失败，错误码: %s", code_str);
         free(code_str);
