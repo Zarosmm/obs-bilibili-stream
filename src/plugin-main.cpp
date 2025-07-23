@@ -24,8 +24,10 @@ public:
         explicit BilibiliStreamPlugin(QObject* parent = nullptr) : QObject(parent) {
                 config.room_id = nullptr;
                 config.csrf_token = nullptr;
-                config.cookies = nullptr; // 初始化为 nullptr
+                config.cookies = nullptr;
                 config.title = nullptr;
+        	config.login_status = false;
+        	config.streaming = false;
         }
 
 	~BilibiliStreamPlugin() {
@@ -118,6 +120,8 @@ public slots:
                         config.cookies = strdup(cookie.toUtf8().constData());
                         obs_log(LOG_INFO, "Cookie 已保存: %s", config.cookies);
                 	if (bili_check_login_status(config.cookies)) {
+                		config.login_status = true;
+                		onLoginStatusTriggered();
                 		char* new_room_id = nullptr;
 				char* new_csrf_token = nullptr;
 				if (bili_get_room_id_and_csrf(config.cookies, &new_room_id, &new_csrf_token)) {
@@ -175,7 +179,7 @@ public slots:
 			qrLabel->setPixmap(qrPixmap);
 		}
 		layout->addWidget(qrLabel);
-		QLabel* infoLabel = new QLabel("请使用Bilibili手机客户端扫描二维码登录", qrDialog);
+		QLabel* infoLabel = new QLabel(qrDialog);
 		layout->addWidget(infoLabel);
 		qrDialog->setLayout(layout);
 
@@ -187,6 +191,7 @@ public slots:
 		        	obs_log(LOG_INFO, "%s", config.cookies);
 		                obs_log(LOG_INFO, "二维码登录成功，检查登录状态");
 		                if (bili_check_login_status(config.cookies)) {
+		                	onLoginStatusTriggered();
 		                        char* new_room_id = nullptr;
 		                        char* new_csrf_token = nullptr;
 					if (bili_get_room_id_and_csrf(config.cookies, &new_room_id, &new_csrf_token)) {
@@ -227,29 +232,40 @@ public slots:
 	}
 
         void onLoginStatusTriggered() {
-                obs_log(LOG_INFO, "登录状态菜单项被点击");
-                if (bili_check_login_status(config.cookies)) {
-                        obs_log(LOG_INFO, "登录状态：已登录");
-                } else {
-                        obs_log(LOG_WARNING, "登录状态：未登录");
-                }
+        	if (config.login_status) {
+        		loginStatusAction->setText("登录状态: 已登录");
+        		loginStatusAction->setChecked(true);
+        		obs_log(LOG_INFO, "登录状态：已登录");
+        	} else {
+        		loginStatusAction->setText("登录状态: 未登录");
+        		loginStatusAction->setChecked(false);
+        		obs_log(LOG_INFO, "登录状态：未登录");
+        	}
         }
 
-        void onPushStreamTriggered() {
-                obs_log(LOG_INFO, "开始直播菜单项被点击");
-                char* rtmp_addr = nullptr;
-                char* rtmp_code = nullptr;
-                if (bili_start_live(&config, 624, &rtmp_addr, &rtmp_code)) {
-                        obs_log(LOG_INFO, "直播已启动，RTMP 地址: %s, 推流码: %s", rtmp_addr, rtmp_code);
-                        obs_data_t* settings = obs_data_create();
-                        obs_data_set_string(settings, "server", rtmp_addr);
-                        obs_data_set_string(settings, "key", rtmp_code);
-                        obs_output_t* output = obs_output_create("rtmp_output", "bilibili_stream", settings, nullptr);
-                        obs_output_start(output);
-                        obs_data_release(settings);
-                }
-                free(rtmp_addr);
-                free(rtmp_code);
+        void onstreamButtonTriggered() {
+        	if (config.streaming) {
+        		if (bili_stop_live()) {
+        			streamButton->setText("开始直播");
+        			config.steaming = false;
+        		}
+        	} else {
+        		char* rtmp_addr = nullptr;
+        		char* rtmp_code = nullptr;
+        		if (bili_start_live(&config, 624, &rtmp_addr, &rtmp_code)) {
+        			obs_log(LOG_INFO, "直播已启动，RTMP 地址: %s, 推流码: %s", rtmp_addr, rtmp_code);
+        			obs_data_t* settings = obs_data_create();
+        			obs_data_set_string(settings, "server", rtmp_addr);
+        			obs_data_set_string(settings, "key", rtmp_code);
+        			obs_output_t* output = obs_output_create("rtmp_output", "bilibili_stream", settings, nullptr);
+        			obs_output_start(output);
+        			obs_data_release(settings);
+        			streamButton->setText("停止直播");
+        			config.steaming = true;
+        		}
+        		free(rtmp_addr);
+        		free(rtmp_code);
+        	}
         }
 
         void onStopStreamTriggered() {
@@ -347,16 +363,14 @@ bool obs_module_load(void)
         QAction* loginStatus = login->addAction("登录状态");
         loginStatus->setCheckable(true);
 	loginStatus->setEnabled(false);
-        QAction* pushStream = bilibiliMenu->addAction("开始直播");
-        QAction* stopStream = bilibiliMenu->addAction("停止直播");
+        QAction* streamButton = bilibiliMenu->addAction("开始直播");
         QAction* updateRoomInfo = bilibiliMenu->addAction("更新直播间信息");
 
         // 连接信号与槽
         QObject::connect(manual, &QAction::triggered, plugin, &BilibiliStreamPlugin::onManualTriggered);
         QObject::connect(scanQrcode, &QAction::triggered, plugin, &BilibiliStreamPlugin::onScanQrcodeTriggered);
         QObject::connect(loginStatus, &QAction::triggered, plugin, &BilibiliStreamPlugin::onLoginStatusTriggered);
-        QObject::connect(pushStream, &QAction::triggered, plugin, &BilibiliStreamPlugin::onPushStreamTriggered);
-        QObject::connect(stopStream, &QAction::triggered, plugin, &BilibiliStreamPlugin::onStopStreamTriggered);
+        QObject::connect(streamButton, &QAction::triggered, plugin, &BilibiliStreamPlugin::onstreamButtonTriggered);
         QObject::connect(updateRoomInfo, &QAction::triggered, plugin, &BilibiliStreamPlugin::onUpdateRoomInfoTriggered);
 
         obs_log(LOG_INFO, "插件加载成功，菜单已添加");
