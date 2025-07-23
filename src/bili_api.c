@@ -5,6 +5,7 @@
 #include <plugin-support.h>
 #include "bili_api.h"
 #include "http_client.h"
+#include "json11/json11.hpp"
 
 // MD5 implementation (public domain, based on standard MD5 algorithm)
 typedef struct {
@@ -188,51 +189,6 @@ typedef struct {
     char* value;
 } Param;
 
-// 简单 JSON 解析函数：提取指定字段的值
-static char* extract_json_field(const char* json, const char* field) {
-    char* result = NULL;
-    char* field_pos = strstr(json, field);
-    if (!field_pos) return NULL;
-
-    // 跳过字段名和冒号
-    field_pos += strlen(field);
-    while (*field_pos && (*field_pos == ':' || *field_pos == ' ' || *field_pos == '"')) field_pos++;
-
-    // 提取字段值
-    if (*field_pos == '"') {
-        // 字符串值
-        field_pos++;
-        char* end = strchr(field_pos, '"');
-        if (end) {
-            size_t len = end - field_pos;
-            result = malloc(len + 1);
-            strncpy(result, field_pos, len);
-            result[len] = '\0';
-        }
-    } else if (*field_pos >= '0' && *field_pos <= '9') {
-        // 数字值
-        char* end = field_pos;
-        while (*end && (*end >= '0' && *end <= '9')) end++;
-        size_t len = end - field_pos;
-        result = malloc(len + 1);
-        strncpy(result, field_pos, len);
-        result[len] = '\0';
-    }
-
-    return result;
-}
-
-// 提取嵌套 JSON 字段（如 data.rtmp.addr）
-static char* extract_nested_json_field(const char* json, const char* parent, const char* child) {
-    char* parent_pos = strstr(json, parent);
-    if (!parent_pos) return NULL;
-
-    parent_pos = strstr(parent_pos, "{");
-    if (!parent_pos) return NULL;
-
-    return extract_json_field(parent_pos, child);
-}
-
 // appsign 函数：为参数添加签名
 static void appsign(Param* params, size_t* param_count, const char* app_key, const char* app_sec) {
     // 添加 appkey
@@ -295,16 +251,24 @@ static long get_current_timestamp() {
         return 0;
     }
 
-    // 解析 data.now
-    char* now_str = extract_nested_json_field(response->data, "\"data\":", "\"now\":");
-    if (!now_str) {
-        obs_log(LOG_ERROR, "无法解析 JSON 中的 'data.now' 字段");
+    // 使用 json11 解析 JSON
+    std::string err;
+    json11::Json json = json11::Json::parse(response->data, err);
+    if (!err.empty()) {
+        obs_log(LOG_ERROR, "JSON 解析失败: %s", err.c_str());
         http_response_free(response);
-        return 0;
+        return false;
     }
 
-    long ts = atol(now_str);
-    free(now_str);
+    // 提取 data.now 和 data.qrcode_key
+    std::string now = json["data"]["now"].string_value();
+    if (now.empty()) {
+        obs_log(LOG_ERROR, "无法提取 data.url 或 data.qrcode_key");
+        http_response_free(response);
+        return false;
+    }
+    long ts = atol(now);
+    free(now);
     http_response_free(response);
     return ts;
 }
@@ -328,26 +292,37 @@ bool bili_get_qrcode(char** qrcode_data, char** qrcode_key) {
         return false;
     }
 
-    // 解析 data.url
-    char* url = extract_nested_json_field(response->data, "\"data\":", "\"url\":");
-
-    char* key = extract_nested_json_field(response->data, "\"data\":", "\"qrcode_key\":");
-    if (!url) {
-        obs_log(LOG_ERROR, "无法解析 JSON 中的 'data.url' 字段");
-        http_response_free(response);
-        return false;
-    }
-    if (!key) {
-        obs_log(LOG_ERROR, "无法解析 JSON 中的 'data.qrcode_key' 字段");
+    // 使用 json11 解析 JSON
+    std::string err;
+    json11::Json json = json11::Json::parse(response->data, err);
+    if (!err.empty()) {
+        obs_log(LOG_ERROR, "JSON 解析失败: %s", err.c_str());
         http_response_free(response);
         return false;
     }
 
+    // 提取 data.url 和 data.qrcode_key
+    std::string url = json["data"]["url"].string_value();
+    std::string key = json["data"]["qrcode_key"].string_value();
+    if (url.empty() || key.empty()) {
+        obs_log(LOG_ERROR, "无法提取 data.url 或 data.qrcode_key");
+        http_response_free(response);
+        return false;
+    }
 
-    *qrcode_data = url;
-    *qrcode_key = key;
+    // 分配内存并复制字符串
+    *qrcode_data = strdup(url.c_str());
+    *qrcode_key = strdup(key.c_str());
+    if (!*qrcode_data || !*qrcode_key) {
+        obs_log(LOG_ERROR, "内存分配失败");
+        free(*qrcode_data);
+        free(*qrcode_key);
+        http_response_free(response);
+        return false;
+    }
+
+    obs_log(LOG_INFO, "获取二维码成功，URL: %s, Key: %s", *qrcode_data, *qrcode_key);
     http_response_free(response);
-    obs_log(LOG_INFO, "获取二维码成功");
     return true;
 }
 
@@ -362,19 +337,22 @@ bool bili_qr_login(char** qrcode_key) {
         return false;
     }
 
-    // 解析 data.code
-    char* code = extract_nested_json_field(response->data, "\"data\":", "\"code\":");
-    if (!code) {
-        obs_log(LOG_ERROR, "无法解析 JSON 中的 'data.code' 字段");
+    // 使用 json11 解析 JSON
+    std::string err;
+    json11::Json json = json11::Json::parse(response->data, err);
+    if (!err.empty()) {
+        obs_log(LOG_ERROR, "JSON 解析失败: %s", err.c_str());
         http_response_free(response);
         return false;
     }
 
-    if (code != "0") {
-        obs_log(LOG_ERROR, "登录失败");
+    // 检查 code 是否为 0
+    if (json["code"].int_value() != 0) {
+        obs_log(LOG_ERROR, "API 返回错误，code: %d, message: %s",
+                json["code"].int_value(), json["message"].string_value().c_str());
         http_response_free(response);
         return false;
-    } else {
+    } else{
         http_response_free(response);
         obs_log(LOG_INFO, "登录成功");
         return true;
