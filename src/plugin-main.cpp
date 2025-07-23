@@ -102,11 +102,6 @@ public slots:
                 return;
             }
 
-            // 释放旧的 config.cookies 内存
-            if (config.cookies) {
-                free(config.cookies);
-            }
-
             // 将 QString 转换为 char* 并存储到 config.cookies
             config.cookies = strdup(cookie.toUtf8().constData());
             obs_log(LOG_INFO, "Cookie 已保存: %s", config.cookies);
