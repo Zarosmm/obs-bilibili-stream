@@ -100,7 +100,7 @@ public slots:
 
         // 创建 QTimer 每秒检查登录状态
         QTimer* timer = new QTimer(qrDialog);
-        QObject::connect(timer, &QTimer::timeout, [=]() {
+        QObject::connect(timer, &QTimer::timeout, [qrDialog, timer, &qrcode_key]() mutable {
             if (bili_qr_login(&qrcode_key)) {
                 obs_log(LOG_INFO, "二维码登录成功，关闭对话框");
                 timer->stop();
