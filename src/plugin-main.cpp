@@ -47,60 +47,47 @@ public:
                         config.title = nullptr;
                 }
 	}
-	// Getter 和 Setter 方法
-	BiliConfig& getConfig() { return config; }
-	void setConfig(const BiliConfig& newConfig) {
-    	    if (config.room_id) free(config.room_id);
-    	    if (config.csrf_token) free(config.csrf_token);
-    	    if (config.cookies) free(config.cookies);
-    	    if (config.title) free(config.title);
-    	    config.room_id = newConfig.room_id ? strdup(newConfig.room_id) : nullptr;
-    	    config.csrf_token = newConfig.csrf_token ? strdup(newConfig.csrf_token) : nullptr;
-    	    config.cookies = newConfig.cookies ? strdup(newConfig.cookies) : nullptr;
-    	    config.title = newConfig.title ? strdup(newConfig.title) : nullptr;
-	}
-
+	BiliConfig config;
 private:
-    BiliConfig config;
 
-    static QPixmap generateQrCodePixmap(const char* qrcode_data) {
-        if (!qrcode_data) {
-            obs_log(LOG_ERROR, "二维码数据为空，无法生成二维码");
-            return QPixmap();
-        }
-
-        obs_log(LOG_DEBUG, "qrcodegen 输入数据: %s", qrcode_data);
-
-        // 使用 qrcodegen 生成二维码
-        using qrcodegen::QrCode;
-
-        const QrCode::Ecc errCorLvl = QrCode::Ecc::LOW; // 错误纠正级别
-        const QrCode qr = QrCode::encodeText(qrcode_data, errCorLvl);
-        if (qr.getSize() <= 0) {
-            obs_log(LOG_ERROR, "qrcodegen 生成二维码失败");
-            return QPixmap();
-        }
-
-        // 创建 QImage 绘制二维码
-        int scale = 5; // 每个模块放大 5 倍
-        int size = qr.getSize();
-        QImage image(size * scale, size * scale, QImage::Format_RGB32);
-        image.fill(Qt::white); // 白色背景
-
-        QPainter painter(&image);
-        painter.setPen(Qt::NoPen);
-        painter.setBrush(Qt::black);
-        for (int y = 0; y < size; y++) {
-            for (int x = 0; x < size; x++) {
-                if (qr.getModule(x, y)) {
-                    painter.drawRect(x * scale, y * scale, scale, scale);
+        static QPixmap generateQrCodePixmap(const char* qrcode_data) {
+                if (!qrcode_data) {
+                        obs_log(LOG_ERROR, "二维码数据为空，无法生成二维码");
+                        return QPixmap();
                 }
-            }
-        }
 
-        obs_log(LOG_INFO, "qrcodegen 成功生成二维码图像，大小: %dx%d", image.width(), image.height());
-        return QPixmap::fromImage(image);
-    }
+                obs_log(LOG_DEBUG, "qrcodegen 输入数据: %s", qrcode_data);
+
+                // 使用 qrcodegen 生成二维码
+                using qrcodegen::QrCode;
+
+                const QrCode::Ecc errCorLvl = QrCode::Ecc::LOW; // 错误纠正级别
+                const QrCode qr = QrCode::encodeText(qrcode_data, errCorLvl);
+                if (qr.getSize() <= 0) {
+                        obs_log(LOG_ERROR, "qrcodegen 生成二维码失败");
+                        return QPixmap();
+                }
+
+                // 创建 QImage 绘制二维码
+                int scale = 5; // 每个模块放大 5 倍
+                int size = qr.getSize();
+                QImage image(size * scale, size * scale, QImage::Format_RGB32);
+                image.fill(Qt::white); // 白色背景
+
+                QPainter painter(&image);
+                painter.setPen(Qt::NoPen);
+                painter.setBrush(Qt::black);
+                for (int y = 0; y < size; y++) {
+                        for (int x = 0; x < size; x++) {
+                                if (qr.getModule(x, y)) {
+					painter.drawRect(x * scale, y * scale, scale, scale);
+                                }
+                        }
+                }
+
+                obs_log(LOG_INFO, "qrcodegen 成功生成二维码图像，大小: %dx%d", image.width(), image.height());
+                return QPixmap::fromImage(image);
+        }
 
 public slots:
 	void onManualTriggered() {
@@ -128,32 +115,22 @@ public slots:
                                 return;
                         }
 
-                        BiliConfig newConfig = getConfig();
-                        if (newConfig.cookies) free(newConfig.cookies);
-                        newConfig.cookies = strdup(cookie.toUtf8().constData());
-                        obs_log(LOG_INFO, "Cookie 已保存: %s", newConfig.cookies);
+                        if (config.cookies) free(config.cookies);
+                        config.cookies = strdup(cookie.toUtf8().constData());
+                        obs_log(LOG_INFO, "Cookie 已保存: %s", config.cookies);
 
                         char* new_room_id = nullptr;
                         char* new_csrf_token = nullptr;
-                        if (bili_get_room_id_and_csrf(newConfig.cookies, &new_room_id, &new_csrf_token)) {
-                                if (newConfig.room_id) free((void*)newConfig.room_id);
-                                if (newConfig.csrf_token) free((void*)newConfig.csrf_token);
-                                newConfig.room_id = new_room_id;
-                                newConfig.csrf_token = new_csrf_token;
+                        if (bili_get_room_id_and_csrf(config.cookies, &new_room_id, &new_csrf_token)) {
+                                if (config.room_id) free((void*)config.room_id);
+                                if (config.csrf_token) free((void*)config.csrf_token);
+                                config.room_id = new_room_id;
+                                config.csrf_token = new_csrf_token;
                         } else {
 				obs_log(LOG_WARNING, "无法通过 cookies 获取 room_id 和 csrf_token，保留现有值");
                         }
 
-                        obs_data_t* settings = obs_data_create();
-                        obs_data_set_string(settings, "bilibili_room_id", newConfig.room_id ? newConfig.room_id : "");
-                        obs_data_set_string(settings, "bilibili_csrf_token", newConfig.csrf_token ? newConfig.csrf_token : "");
-                        obs_data_set_string(settings, "bilibili_cookies", newConfig.cookies ? newConfig.cookies : "");
-                        obs_data_set_string(settings, "bilibili_title", newConfig.title ? newConfig.title : "");
-                        obs_set_private_data(settings);
-                        obs_data_release(settings);
-                        obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
-
-                        setConfig(newConfig);
+                        setConfig(config);
                         loginDialog->accept();
                 });
 
@@ -200,31 +177,20 @@ public slots:
 		                char* new_cookies = nullptr;
 		                if (bili_check_login_status(getConfig().cookies, &new_cookies)) {
 		                        if (new_cookies) {
-		                                BiliConfig newConfig = getConfig();
-		                                if (newConfig.cookies) free(newConfig.cookies);
-		                                newConfig.cookies = new_cookies;
+		                                if (config.cookies) free(config.cookies);
+		                                config.cookies = new_cookies;
 
 		                                char* new_room_id = nullptr;
 		                                char* new_csrf_token = nullptr;
-						if (bili_get_room_id_and_csrf(newConfig.cookies, &new_room_id, &new_csrf_token)) {
-		                                    if (newConfig.room_id) free((void*)newConfig.room_id);
-		                                    if (newConfig.csrf_token) free((void*)newConfig.csrf_token);
-		                                    newConfig.room_id = new_room_id;
-		                                    newConfig.csrf_token = new_csrf_token;
+						if (bili_get_room_id_and_csrf(config.cookies, &new_room_id, &new_csrf_token)) {
+		                                    if (config.room_id) free((void*)config.room_id);
+		                                    if (config.csrf_token) free((void*)config.csrf_token);
+		                                    config.room_id = new_room_id;
+		                                    config.csrf_token = new_csrf_token;
 						} else {
 							obs_log(LOG_WARNING, "无法通过 cookies 获取 room_id 和 csrf_token，保留现有值");
 						}
 
-		                                obs_data_t* settings = obs_data_create();
-		                                obs_data_set_string(settings, "bilibili_room_id", newConfig.room_id ? newConfig.room_id : "");
-		                                obs_data_set_string(settings, "bilibili_csrf_token", newConfig.csrf_token ? newConfig.csrf_token : "");
-		                                obs_data_set_string(settings, "bilibili_cookies", newConfig.cookies ? newConfig.cookies : "");
-		                                obs_data_set_string(settings, "bilibili_title", newConfig.title ? newConfig.title : "");
-		                                obs_set_private_data(settings);
-		                                obs_data_release(settings);
-		                                obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
-
-		                                setConfig(newConfig);
 		                        }
 		                }
 		                timer->stop();
@@ -306,72 +272,71 @@ bool obs_module_load(void)
         // Initialize Bilibili API
         bili_api_init();
         obs_log(LOG_DEBUG, "bili_api_init completed");
-    
+
         // 获取 OBS 主窗口
         auto main_window = (QMainWindow*)obs_frontend_get_main_window();
         if (!main_window) {
 	            obs_log(LOG_ERROR, "无法获取 OBS 主窗口");
 	            return false;
         }
-    
+
         // 创建插件对象
         plugin = new BilibiliStreamPlugin(main_window);
         if (!plugin) {
                 obs_log(LOG_ERROR, "无法创建 BilibiliStreamPlugin 对象");
                 return false;
         }
-    
+
         // 从 OBS 数据库加载配置
         obs_data_t* settings = obs_get_private_data();
         if (settings) {
-                BiliConfig newConfig = {};
                 const char* room_id = obs_data_get_string(settings, "bilibili_room_id");
                 const char* csrf_token = obs_data_get_string(settings, "bilibili_csrf_token");
                 const char* cookies = obs_data_get_string(settings, "bilibili_cookies");
                 const char* title = obs_data_get_string(settings, "bilibili_title");
-    
-                newConfig.room_id = room_id && strlen(room_id) > 0 ? strdup(room_id) : nullptr;
-                newConfig.csrf_token = csrf_token && strlen(csrf_token) > 0 ? strdup(csrf_token) : nullptr;
-                newConfig.cookies = cookies && strlen(cookies) > 0 ? strdup(cookies) : nullptr;
-                newConfig.title = title && strlen(title) > 0 ? strdup(title) : nullptr;
-    
+
+                plugin->config.room_id = room_id && strlen(room_id) > 0 ? strdup(room_id) : nullptr;
+                plugin->config.csrf_token = csrf_token && strlen(csrf_token) > 0 ? strdup(csrf_token) : nullptr;
+                plugin->config.cookies = cookies && strlen(cookies) > 0 ? strdup(cookies) : nullptr;
+                plugin->config.title = title && strlen(title) > 0 ? strdup(title) : nullptr;
+
 		// 如果有 cookies，尝试获取 room_id 和 csrf_token
-                if (newConfig.cookies && strlen(newConfig.cookies) > 0) {
+                if (plugin->config.cookies && strlen(plugin->config.cookies) > 0) {
                         char* new_room_id = nullptr;
                         char* new_csrf_token = nullptr;
-                        if (bili_get_room_id_and_csrf(newConfig.cookies, &new_room_id, &new_csrf_token)) {
-                                if (newConfig.room_id) free((void*)newConfig.room_id);
-                                if (newConfig.csrf_token) free((void*)newConfig.csrf_token);
-                                newConfig.room_id = new_room_id;
-                                newConfig.csrf_token = new_csrf_token;
+                        if (bili_get_room_id_and_csrf(plugin->config.cookies, &new_room_id, &new_csrf_token)) {
+                                if (plugin->config.room_id) free((void*)plugin->config.room_id);
+                                if (plugin->config.csrf_token) free((void*)plugin->config.csrf_token);
+                                plugin->config.room_id = new_room_id;
+                                plugin->config.csrf_token = new_csrf_token;
                         } else {
 				obs_log(LOG_WARNING, "无法通过 cookies 获取 room_id 和 csrf_token，使用数据库值或默认值");
                         }
                 }
 		// Use default values for missing fields
-                if (!newConfig.room_id) newConfig.room_id = strdup("12345");
-                if (!newConfig.csrf_token) newConfig.csrf_token = strdup("your_csrf_token");
-                if (!newConfig.title) newConfig.title = strdup("我的直播");
-    
-                plugin->setConfig(newConfig);
+                if (!plugin->config.room_id) plugin->config.room_id = strdup("12345");
+                if (!plugin->config.csrf_token) plugin->config.csrf_token = strdup("your_csrf_token");
+                if (!plugin->config.title) plugin->config.title = strdup("我的直播");
+
+                plugin->setConfig(plugin->config);
                 // Free temporary config strings
-                if (newConfig.room_id) free(newConfig.room_id);
-                if (newConfig.csrf_token) free(newConfig.csrf_token);
-                if (newConfig.cookies) free(newConfig.cookies);
-                if (newConfig.title) free(newConfig.title);
-    
+                if (plugin->config.room_id) free(plugin->config.room_id);
+                if (plugin->config.csrf_token) free(plugin->config.csrf_token);
+                if (plugin->config.cookies) free(plugin->config.cookies);
+                if (plugin->config.title) free(plugin->config.title);
+
                 obs_log(LOG_INFO, "从 OBS 数据库加载配置: room_id=%s, csrf_token=%s, cookies=%s, title=%s",
                         plugin->getConfig().room_id ? plugin->getConfig().room_id : "无",
                         plugin->getConfig().csrf_token ? plugin->getConfig().csrf_token : "无",
                         plugin->getConfig().cookies ? plugin->getConfig().cookies : "无",
                         plugin->getConfig().title ? plugin->getConfig().title : "无");
-        
+
                 obs_data_release(settings);
         } else {
                 obs_log(LOG_WARNING, "无法从 OBS 数据库加载配置，使用默认配置");
                 // 默认配置已在 BilibiliStreamPlugin 构造函数中设置
         }
-    
+
         // 创建菜单
         auto menuBar = main_window->menuBar();
         if (!menuBar) {
@@ -381,7 +346,7 @@ bool obs_module_load(void)
                 return false;
         }
         auto bilibiliMenu = menuBar->addMenu("Bilibili直播");
-    
+
         // 添加菜单项
         auto login = bilibiliMenu->addMenu("登录");
         QAction* manual = login->addAction("手动登录");
@@ -391,7 +356,7 @@ bool obs_module_load(void)
         QAction* pushStream = bilibiliMenu->addAction("开始直播");
         QAction* stopStream = bilibiliMenu->addAction("停止直播");
         QAction* updateRoomInfo = bilibiliMenu->addAction("更新直播间信息");
-    
+
         // 连接信号与槽
         QObject::connect(manual, &QAction::triggered, plugin, &BilibiliStreamPlugin::onManualTriggered);
         QObject::connect(scanQrcode, &QAction::triggered, plugin, &BilibiliStreamPlugin::onScanQrcodeTriggered);
@@ -399,7 +364,7 @@ bool obs_module_load(void)
         QObject::connect(pushStream, &QAction::triggered, plugin, &BilibiliStreamPlugin::onPushStreamTriggered);
         QObject::connect(stopStream, &QAction::triggered, plugin, &BilibiliStreamPlugin::onStopStreamTriggered);
         QObject::connect(updateRoomInfo, &QAction::triggered, plugin, &BilibiliStreamPlugin::onUpdateRoomInfoTriggered);
-    
+
         obs_log(LOG_INFO, "插件加载成功，菜单已添加");
         return true;
 }
@@ -407,6 +372,15 @@ bool obs_module_load(void)
 void obs_module_unload(void)
 {
         if (plugin) {
+        	// 保存配置到 OBS 数据库
+        	obs_data_t* settings = obs_data_create();
+        	obs_data_set_string(settings, "bilibili_room_id", plugin->config.room_id ? plugin->config.room_id : "");
+        	obs_data_set_string(settings, "bilibili_csrf_token", plugin->config.csrf_token ? plugin->config.csrf_token : "");
+        	obs_data_set_string(settings, "bilibili_cookies", plugin->config.cookies ? plugin->config.cookies : "");
+        	obs_data_set_string(settings, "bilibili_title", plugin->config.title ? plugin->config.title : "");
+        	obs_set_private_data(settings);
+        	obs_data_release(settings);
+        	obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
                 delete plugin;
                 plugin = nullptr;
         }

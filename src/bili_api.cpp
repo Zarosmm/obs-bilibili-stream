@@ -193,13 +193,19 @@ typedef struct {
 
 // 提取 cookies 中的键值对
 static bool extract_cookie_value(const char* cookies, const char* key, char** value) {
-	if (!cookies || !key || !value) return false;
+	if (!cookies || !key || !value) {
+		obs_log(LOG_ERROR, "extract_cookie_value: 无效参数: cookies=%p, key=%p, value=%p", cookies, key, value);
+		return false;
+	}
 
 	std::string cookies_str(cookies);
 	std::string key_str(key);
 	std::string search = key_str + "=";
 	size_t pos = cookies_str.find(search);
-	if (pos == std::string::npos) return false;
+	if (pos == std::string::npos) {
+		obs_log(LOG_WARNING, "未找到 cookie 键: %s", key);
+		return false;
+	}
 
 	size_t start = pos + search.length();
 	size_t end = cookies_str.find(";", start);
@@ -210,6 +216,7 @@ static bool extract_cookie_value(const char* cookies, const char* key, char** va
 		obs_log(LOG_ERROR, "内存分配失败 for %s", key);
 		return false;
 	}
+	obs_log(LOG_DEBUG, "提取 cookie: %s=%s", key, *value);
 	return true;
 }
 
