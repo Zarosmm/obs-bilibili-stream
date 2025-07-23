@@ -442,7 +442,6 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
     if (!title_response || title_response->status != 200) {
         obs_log(LOG_ERROR, "设置直播标题失败，状态码: %ld", title_response ? title_response->status : 0);
         http_response_free(title_response);
-        free(curr_version_str.c_str());
         return false;
     }
 
@@ -451,14 +450,12 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
     if (!err.empty()) {
         obs_log(LOG_ERROR, "JSON 解析失败: %s", err.c_str());
         http_response_free(title_response);
-        free(curr_version_str.c_str());
         return false;
     }
 
     if (json["code"].int_value() != 0) {
         obs_log(LOG_ERROR, "设置直播标题失败，错误码: %d", json["code"].int_value());
         http_response_free(title_response);
-        free(curr_version_str.c_str());
         return false;
     }
     http_response_free(title_response);
@@ -515,7 +512,6 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
     json = json11::Json::parse(response->data, err);
     if (!err.empty()) {
         obs_log(LOG_ERROR, "JSON 解析失败: %s", err.c_str());
-        free(curr_version_str.c_str());
         http_response_free(response);
         return false;
     }
@@ -526,7 +522,6 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
         } else if (json["code"].int_value() != 0) {
             obs_log(LOG_ERROR, "获取推流码失败，错误码: %d", json["code"].int_value());
         }
-        free(curr_version_str.c_str());
         http_response_free(response);
         return false;
     }
@@ -535,14 +530,12 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
     std::string code = json["data"]["rtmp"]["code"].string_value();
     if (addr.empty() || code.empty()) {
         obs_log(LOG_ERROR, "无法解析 JSON 中的 'data.rtmp.addr' 或 'data.rtmp.code' 字段");
-        free(curr_version_str.c_str());
         http_response_free(response);
         return false;
     }
 
     *rtmp_addr = strdup(addr.c_str());
     *rtmp_code = strdup(code.c_str());
-    free(curr_version_str.c_str());
     http_response_free(response);
     obs_log(LOG_INFO, "直播已开启！RTMP 地址: %s, 推流码: %s", *rtmp_addr, *rtmp_code);
     return true;
