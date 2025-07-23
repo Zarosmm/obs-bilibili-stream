@@ -174,7 +174,7 @@ public slots:
 		        if (bili_qr_login(&qrcode_key)) {
 		                obs_log(LOG_INFO, "二维码登录成功，检查登录状态以获取 cookies");
 		                char* new_cookies = nullptr;
-		                if (bili_check_login_status(getConfig().cookies, &new_cookies)) {
+		                if (bili_check_login_status(config.cookies, &new_cookies)) {
 		                        if (new_cookies) {
 		                                if (config.cookies) free(config.cookies);
 		                                config.cookies = new_cookies;
@@ -318,10 +318,10 @@ bool obs_module_load(void)
                 if (!plugin->config.title) plugin->config.title = strdup("我的直播");
 
                 obs_log(LOG_INFO, "从 OBS 数据库加载配置: room_id=%s, csrf_token=%s, cookies=%s, title=%s",
-                        config.room_id ? config.room_id : "无",
-                        config.csrf_token ? config.csrf_token : "无",
-                        config.cookies ? config.cookies : "无",
-                        config.title ? config.title : "无");
+                        plugin->config.room_id ? plugin->config.room_id : "无",
+                        plugin->config.csrf_token ? plugin->config.csrf_token : "无",
+                        plugin->config.cookies ? plugin->config.cookies : "无",
+                        plugin->config.title ? plugin->config.title : "无");
 
                 obs_data_release(settings);
         } else {
