@@ -595,8 +595,12 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
                 json["code"].int_value(), json["message"].string_value().c_str());
         return false;
     }
-
-    std::string build_str = json["data"]["build"].string_value();
+	const auto& build_value = json["data"]["build"];
+    if (!now_value.is_number()) {
+        obs_log(LOG_ERROR, "data.now 不是有效数字");
+        return 0;
+    }
+    std::string build_str = std::to_string(build_value.int_value());
     std::string curr_version_str = json["data"]["curr_version"].string_value();
     if (build_str.empty() || curr_version_str.empty()) {
         obs_log(LOG_ERROR, "无法提取 data.build 或 data.curr_version: build=%s, curr_version=%s",
