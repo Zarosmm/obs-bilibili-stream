@@ -382,6 +382,7 @@ bool obs_module_load(void) {
     QAction* scanQrcode = login->addAction("扫码登录");
     plugin->loginStatusAction = login->addAction("登录状态: 未登录");
     plugin->loginStatusAction->setCheckable(true);
+	plugin->loginStatusAction->setEnabled(false);
     plugin->streamAction = bilibiliMenu->addAction("开始直播");
     QAction* updateRoomInfo = bilibiliMenu->addAction("更新直播间信息");
 

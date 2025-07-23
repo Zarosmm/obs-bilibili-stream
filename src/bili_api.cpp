@@ -300,16 +300,16 @@ static long get_current_timestamp(const char* cookies) {
         http_response_free(response);
         return 0;
     }
+	http_response_free(response);
+	const auto& now_value = json["data"]["now"];
 
-    // 提取 data.now
-    std::string now = json["data"]["now"].string_value();
-    if (now.empty()) {
+    // 提取 now
+    std::string now_str = std::to_string(now_value.int_value());
+    if (now_str.empty()) {
         obs_log(LOG_ERROR, "无法提取 data.now");
-        http_response_free(response);
         return 0;
     }
-    long ts = atol(now.c_str());
-    http_response_free(response);
+    long ts = atol(now_str.c_str());
     return ts;
 }
 
@@ -341,13 +341,12 @@ bool bili_get_qrcode(const char* cookies, char** qrcode_data, char** qrcode_key)
         http_response_free(response);
         return false;
     }
-
+	http_response_free(response);
     // 提取 data.url 和 data.qrcode_key
     std::string url = json["data"]["url"].string_value();
     std::string key = json["data"]["qrcode_key"].string_value();
     if (url.empty() || key.empty()) {
         obs_log(LOG_ERROR, "无法提取 data.url 或 data.qrcode_key");
-        http_response_free(response);
         return false;
     }
 
@@ -358,7 +357,6 @@ bool bili_get_qrcode(const char* cookies, char** qrcode_data, char** qrcode_key)
         obs_log(LOG_ERROR, "内存分配失败");
         free(*qrcode_data);
         free(*qrcode_key);
-        http_response_free(response);
         return false;
     }
 
