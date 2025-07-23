@@ -7,8 +7,9 @@
 #include "bili_api.hpp"
 #include "http_client.h"
 #include "json11/json11.hpp"
+#include <cstring>
 
-// MD5 implementation (unchanged)
+// MD5 implementation
 typedef struct {
     unsigned int state[4];
     unsigned long long count[2];
@@ -189,6 +190,28 @@ typedef struct {
     char* key;
     char* value;
 } Param;
+
+// 提取 cookies 中的键值对
+static bool extract_cookie_value(const char* cookies, const char* key, char** value) {
+	if (!cookies || !key || !value) return false;
+
+	std::string cookies_str(cookies);
+	std::string key_str(key);
+	std::string search = key_str + "=";
+	size_t pos = cookies_str.find(search);
+	if (pos == std::string::npos) return false;
+
+	size_t start = pos + search.length();
+	size_t end = cookies_str.find(";", start);
+	if (end == std::string::npos) end = cookies_str.length();
+	std::string val = cookies_str.substr(start, end - start);
+	*value = strdup(val.c_str());
+	if (!*value) {
+		obs_log(LOG_ERROR, "内存分配失败 for %s", key);
+		return false;
+	}
+	return true;
+}
 
 // appsign 函数：为参数添加签名
 static void appsign(Param* params, size_t* param_count, const char* app_key, const char* app_sec) {
@@ -419,6 +442,73 @@ bool bili_check_login_status(const char* input_cookies, char** output_cookies) {
     http_response_free(response);
     obs_log(LOG_INFO, "检查登录状态成功，登录状态: %s", is_login ? "已登录" : "未登录");
     return is_login;
+}
+
+bool bili_get_room_id_and_csrf(const char* cookies, char** room_id, char** csrf_token) {
+    if (!cookies || !room_id || !csrf_token) {
+        obs_log(LOG_ERROR, "无效参数：cookies, room_id 或 csrf_token 为空");
+        return false;
+    }
+
+    // 提取 DedeUserID
+    char* dede_user_id = nullptr;
+    if (!extract_cookie_value(cookies, "DedeUserID", &dede_user_id)) {
+        obs_log(LOG_ERROR, "无法从 cookies 中提取 DedeUserID");
+        return false;
+    }
+
+    // 构造请求 URL
+    char url[256];
+    snprintf(url, sizeof(url), "https://api.live.bilibili.com/room/v2/Room/room_id_by_uid?uid=%s", dede_user_id);
+
+    // 发送请求
+    auto headers = build_headers_with_cookie(cookies);
+    HttpResponse* response = http_get_with_headers(url, headers.data());
+    free(dede_user_id); // 释放临时内存
+
+    if (!response || response->status != 200) {
+        obs_log(LOG_ERROR, "获取 room_id 失败，状态码: %ld", response ? response->status : 0);
+        http_response_free(response);
+        return false;
+    }
+
+    // 解析 JSON
+    std::string err;
+    json11::Json json = json11::Json::parse(response->data, err);
+    http_response_free(response);
+    if (!err.empty()) {
+        obs_log(LOG_ERROR, "JSON 解析失败: %s", err.c_str());
+        return false;
+    }
+
+    if (json["code"].int_value() != 0) {
+        obs_log(LOG_ERROR, "API 返回错误，code: %d, message: %s",
+                json["code"].int_value(), json["message"].string_value().c_str());
+        return false;
+    }
+
+    // 提取 room_id
+    std::string room_id_str = json["data"]["room_id"].string_value();
+    if (room_id_str.empty()) {
+        obs_log(LOG_ERROR, "无法提取 data.room_id");
+        return false;
+    }
+    *room_id = strdup(room_id_str.c_str());
+    if (!*room_id) {
+        obs_log(LOG_ERROR, "内存分配失败 for room_id");
+        return false;
+    }
+
+    // 提取 bili_jct 作为 csrf_token
+    if (!extract_cookie_value(cookies, "bili_jct", csrf_token)) {
+        obs_log(LOG_ERROR, "无法从 cookies 中提取 bili_jct");
+        free(*room_id);
+        *room_id = nullptr;
+        return false;
+    }
+
+    obs_log(LOG_INFO, "获取 room_id 和 csrf_token 成功: room_id=%s, csrf_token=%s", *room_id, *csrf_token);
+    return true;
 }
 
 // 启动直播
