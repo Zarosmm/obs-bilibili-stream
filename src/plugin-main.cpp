@@ -8,7 +8,7 @@
 #include <QDialog>
 #include <QLabel>
 #include <QVBoxLayout>
-#include <QPainter>
+#include <QTimer>
 #include <windows.h>
 #include "qrcodegen/qrcodegen.hpp"
 #include "bili_api.hpp"
@@ -72,34 +72,53 @@ public slots:
         obs_log(LOG_INFO, "扫码登录菜单项被点击");
         char* qrcode_data = nullptr;
         char* qrcode_key = nullptr;
-        if (bili_get_qrcode(&qrcode_data, &qrcode_key)) {
-            obs_log(LOG_INFO, "二维码数据: %s, 二维码密钥: %s",
-                    qrcode_data ? qrcode_data : "无数据",
-                    qrcode_key ? qrcode_key : "无数据");
+        if (!bili_get_qrcode(&qrcode_data, &qrcode_key)) {
+            obs_log(LOG_ERROR, "获取二维码失败");
+            return;
+        }
 
-            // 创建对话框显示二维码
-            QDialog* qrDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
-            qrDialog->setWindowTitle("Bilibili 登录二维码");
-            QVBoxLayout* layout = new QVBoxLayout(qrDialog);
-            QLabel* qrLabel = new QLabel(qrDialog);
-            QPixmap qrPixmap = generateQrCodePixmap(qrcode_data);
-            if (qrPixmap.isNull()) {
-                obs_log(LOG_ERROR, "二维码图像为空，无法显示");
-                qrLabel->setText("无法生成二维码");
+        obs_log(LOG_INFO, "二维码数据: %s, 二维码密钥: %s",
+                qrcode_data ? qrcode_data : "无数据",
+                qrcode_key ? qrcode_key : "无数据");
+
+        QDialog* qrDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
+        qrDialog->setWindowTitle("Bilibili 登录二维码");
+        QVBoxLayout* layout = new QVBoxLayout(qrDialog);
+        QLabel* qrLabel = new QLabel(qrDialog);
+        QPixmap qrPixmap = generateQrCodePixmap(qrcode_data);
+        if (qrPixmap.isNull()) {
+            obs_log(LOG_ERROR, "二维码图像为空，无法显示");
+            qrLabel->setText("无法生成二维码");
+        } else {
+            qrLabel->setPixmap(qrPixmap);
+        }
+        layout->addWidget(qrLabel);
+        QLabel* infoLabel = new QLabel("请使用Bilibili手机客户端扫描二维码登录", qrDialog);
+        layout->addWidget(infoLabel);
+        qrDialog->setLayout(layout);
+
+        // 创建 QTimer 每秒检查登录状态
+        QTimer* timer = new QTimer(qrDialog);
+        QObject::connect(timer, &QTimer::timeout, [=]() {
+            if (bili_qr_login(&qrcode_key)) {
+                obs_log(LOG_INFO, "二维码登录成功，关闭对话框");
+                timer->stop();
+                qrDialog->accept();
             } else {
-                qrLabel->setPixmap(qrPixmap);
+                obs_log(LOG_DEBUG, "二维码登录检查：尚未登录");
             }
-            layout->addWidget(qrLabel);
-            QLabel* infoLabel = new QLabel("请使用Bilibili手机客户端扫描二维码登录", qrDialog);
-            layout->addWidget(infoLabel);
-            qrDialog->setLayout(layout);
-            qrDialog->exec();
+        });
+        timer->start(1000); // 每1000ms（1秒）检查一次
 
+        // 对话框关闭时清理资源
+        QObject::connect(qrDialog, &QDialog::finished, [=]() {
+            timer->stop();
             free(qrcode_data);
             free(qrcode_key);
-        } else {
-            obs_log(LOG_ERROR, "获取二维码失败");
-        }
+            qrDialog->deleteLater();
+        });
+
+        qrDialog->exec();
     }
 
     void onLoginStatusTriggered() {
