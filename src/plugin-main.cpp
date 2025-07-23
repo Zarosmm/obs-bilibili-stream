@@ -134,6 +134,15 @@ public slots:
                         loginDialog->accept();
                 });
 
+        	obs_data_t* settings = obs_data_create();
+        	obs_data_set_string(settings, "bilibili_room_id", plugin->config.room_id ? plugin->config.room_id : "");
+        	obs_data_set_string(settings, "bilibili_csrf_token", plugin->config.csrf_token ? plugin->config.csrf_token : "");
+        	obs_data_set_string(settings, "bilibili_cookies", plugin->config.cookies ? plugin->config.cookies : "");
+        	obs_data_set_string(settings, "bilibili_title", plugin->config.title ? plugin->config.title : "");
+        	obs_set_private_data(settings);
+        	obs_data_release(settings);
+        	obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
+
                 QObject::connect(loginDialog, &QDialog::finished, [=]() {
 			loginDialog->deleteLater();
                 });
@@ -200,6 +209,15 @@ public slots:
                         free(qrcode_key);
                         qrDialog->deleteLater();
 		});
+
+        	obs_data_t* settings = obs_data_create();
+        	obs_data_set_string(settings, "bilibili_room_id", plugin->config.room_id ? plugin->config.room_id : "");
+        	obs_data_set_string(settings, "bilibili_csrf_token", plugin->config.csrf_token ? plugin->config.csrf_token : "");
+        	obs_data_set_string(settings, "bilibili_cookies", plugin->config.cookies ? plugin->config.cookies : "");
+        	obs_data_set_string(settings, "bilibili_title", plugin->config.title ? plugin->config.title : "");
+        	obs_set_private_data(settings);
+        	obs_data_release(settings);
+        	obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
 
 		qrDialog->exec();
 	}
