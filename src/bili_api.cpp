@@ -480,6 +480,8 @@ bool bili_get_room_id_and_csrf(const char* cookies, char** room_id, char** csrf_
         return false;
     }
 
+    const auto& room_id_value = json["data"]["room_id"];
+
     // 提取 room_id
     std::string room_id_str = std::to_string(room_id_value.int_value());
     if (room_id_str.empty()) {
