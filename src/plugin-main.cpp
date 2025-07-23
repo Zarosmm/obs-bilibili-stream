@@ -310,10 +310,14 @@ bool obs_module_load(void)
 	obs_data_t* settings = obs_get_private_data();
 	if (settings) {
 		BiliConfig newConfig = {};
-		newConfig.room_id = obs_data_get_string(settings, "bilibili_room_id");
-		newConfig.csrf_token = obs_data_get_string(settings, "bilibili_csrf_token");
-		newConfig.cookies = obs_data_get_string(settings, "bilibili_cookies");
-		newConfig.title = obs_data_get_string(settings, "bilibili_title");
+		const char* room_id = obs_data_get_string(settings, "bilibili_room_id");
+		const char* csrf_token = obs_data_get_string(settings, "bilibili_csrf_token");
+		const char* cookies = obs_data_get_string(settings, "bilibili_cookies");
+		const char* title = obs_data_get_string(settings, "bilibili_title");
+		newConfig.room_id = room_id && strlen(room_id) > 0 ? strdup(room_id) : nullptr;
+		newConfig.csrf_token = csrf_token && strlen(csrf_token) > 0 ? strdup(csrf_token) : nullptr;
+		newConfig.cookies = cookies && strlen(cookies) > 0 ? strdup(cookies) : nullptr;
+		newConfig.title = title && strlen(title) > 0 ? strdup(title) : nullptr;
 
 		// 如果有 cookies，尝试获取 room_id 和 csrf_token
 		if (newConfig.cookies && strlen(newConfig.cookies) > 0) {
@@ -328,15 +332,18 @@ bool obs_module_load(void)
 				obs_log(LOG_WARNING, "无法通过 cookies 获取 room_id 和 csrf_token，使用数据库值或默认值");
 			}
 		}
-		// 使用默认值填充缺失字段
-		if (!newConfig.room_id || strlen(newConfig.room_id) == 0)
-			newConfig.room_id = "12345";
-		if (!newConfig.csrf_token || strlen(newConfig.csrf_token) == 0)
-			newConfig.csrf_token = "your_csrf_token";
-		if (!newConfig.title || strlen(newConfig.title) == 0)
-			newConfig.title = "我的直播";
+		// Use default values for missing fields
+		if (!newConfig.room_id) newConfig.room_id = strdup("12345");
+		if (!newConfig.csrf_token) newConfig.csrf_token = strdup("your_csrf_token");
+		if (!newConfig.title) newConfig.title = strdup("我的直播");
 
 		plugin->setConfig(newConfig);
+		// Free temporary config strings
+		if (newConfig.room_id) free(newConfig.room_id);
+		if (newConfig.csrf_token) free(newConfig.csrf_token);
+		if (newConfig.cookies) free(newConfig.cookies);
+		if (newConfig.title) free(newConfig.title);
+
 		obs_log(LOG_INFO, "从 OBS 数据库加载配置: room_id=%s, csrf_token=%s, cookies=%s, title=%s",
 			plugin->getConfig().room_id, plugin->getConfig().csrf_token,
 			plugin->getConfig().cookies ? plugin->getConfig().cookies : "无",
