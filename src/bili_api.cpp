@@ -481,7 +481,8 @@ bool bili_get_room_id_and_csrf(const char* cookies, char** room_id, char** csrf_
     }
 
     // 提取 room_id
-    std::string room_id_str = json["data"]["room_id"].string_value();
+    std::string room_id_int = json["data"]["room_id"].int_value();
+    room_id_str = std::to_string(room_id_value.int_value());
     if (room_id_str.empty()) {
         obs_log(LOG_ERROR, "无法提取 data.room_id");
         return false;
