@@ -7,15 +7,15 @@
 #include "http_client.h"
 #include "json11/json11.hpp"
 
-// MD5 implementation (public domain, based on standard MD5 algorithm)
+// MD5 implementation (unchanged)
 typedef struct {
     unsigned int state[4];
-    unsigned long long count[2]; // Changed to 64-bit to handle large inputs
+    unsigned long long count[2];
     unsigned char buffer[64];
 } MD5_CTX;
 
 static void md5_init(MD5_CTX *context);
-static void md5_update(MD5_CTX *context, const unsigned char *input, size_t inputLen); // Use size_t
+static void md5_update(MD5_CTX *context, const unsigned char *input, size_t inputLen);
 static void md5_final(unsigned char digest[16], MD5_CTX *context);
 static void md5_transform(unsigned int state[4], const unsigned char block[64]);
 
@@ -257,18 +257,17 @@ static long get_current_timestamp() {
     if (!err.empty()) {
         obs_log(LOG_ERROR, "JSON 解析失败: %s", err.c_str());
         http_response_free(response);
-        return false;
+        return 0;
     }
 
-    // 提取 data.now 和 data.qrcode_key
+    // 提取 data.now
     std::string now = json["data"]["now"].string_value();
     if (now.empty()) {
-        obs_log(LOG_ERROR, "无法提取 data.url 或 data.qrcode_key");
+        obs_log(LOG_ERROR, "无法提取 data.now");
         http_response_free(response);
-        return false;
+        return 0;
     }
-    long ts = atol(now);
-    free(now);
+    long ts = atol(now.c_str());
     http_response_free(response);
     return ts;
 }
@@ -326,13 +325,13 @@ bool bili_get_qrcode(char** qrcode_data, char** qrcode_key) {
     return true;
 }
 
-// 检查二维码情况
+// 检查二维码登录状态
 bool bili_qr_login(char** qrcode_key) {
     char qr_login_url[2048];
-    snprintf(qr_login_url, sizeof(qr_login_url), "https://passport.bilibili.com/x/passport-login/web/qrcode/poll?qrcode_key?qrcode_key=%s", *qrcode_key);
+    snprintf(qr_login_url, sizeof(qr_login_url), "https://passport.bilibili.com/x/passport-login/web/qrcode/poll?qrcode_key=%s", *qrcode_key);
     HttpResponse* response = http_get_with_headers(qr_login_url, default_headers);
     if (!response || response->status != 200) {
-        obs_log(LOG_ERROR, "获取二维码失败，状态码: %ld", response ? response->status : 0);
+        obs_log(LOG_ERROR, "检查二维码登录状态失败，状态码: %ld", response ? response->status : 0);
         http_response_free(response);
         return false;
     }
@@ -352,11 +351,11 @@ bool bili_qr_login(char** qrcode_key) {
                 json["code"].int_value(), json["message"].string_value().c_str());
         http_response_free(response);
         return false;
-    } else{
-        http_response_free(response);
-        obs_log(LOG_INFO, "登录成功");
-        return true;
     }
+
+    http_response_free(response);
+    obs_log(LOG_INFO, "二维码登录成功");
+    return true;
 }
 
 // 检查登录状态
@@ -368,7 +367,6 @@ bool bili_check_login_status(char** status_data) {
         return false;
     }
 
-    // 返回整个 JSON 响应
     *status_data = strdup(response->data);
     http_response_free(response);
     obs_log(LOG_INFO, "检查登录状态成功");
@@ -380,7 +378,6 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
     const char* app_key = "aae92bc66f3edfab";
     const char* app_sec = "af125a0d5279fd576c1b4418a3e8276d";
 
-    // 获取直播版本信息
     Param version_params[10];
     size_t param_count = 0;
     version_params[param_count].key = strdup("system_version");
@@ -417,7 +414,6 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
         return false;
     }
 
-    // 使用 json11 解析 JSON
     std::string err;
     json11::Json json = json11::Json::parse(version_response->data, err);
     if (!err.empty()) {
@@ -426,7 +422,6 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
         return false;
     }
 
-    // 提取 data.build 和 data.curr_version
     std::string build_str = json["data"]["build"].string_value();
     std::string curr_version_str = json["data"]["curr_version"].string_value();
     if (build_str.empty() || curr_version_str.empty()) {
@@ -435,12 +430,9 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
         return false;
     }
 
-    long build = build_str ? atol(build_str) : 1234; // 默认值
-    if (!curr_version_str) curr_version_str = strdup("1.0.0"); // 默认值
-    free(build_str);
+    long build = atol(build_str.c_str());
     http_response_free(version_response);
 
-    // 设置直播标题
     char title_data[512];
     snprintf(title_data, sizeof(title_data),
              "room_id=%s&platform=pc_link&title=%s&csrf_token=%s&csrf=%s",
@@ -450,31 +442,28 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
     if (!title_response || title_response->status != 200) {
         obs_log(LOG_ERROR, "设置直播标题失败，状态码: %ld", title_response ? title_response->status : 0);
         http_response_free(title_response);
-        free(curr_version_str);
+        free(curr_version_str.c_str());
         return false;
     }
-    // 使用 json11 解析 JSON
-    std::string err;
-    json11::Json json = json11::Json::parse(title_response->data, err);
+
+    err.clear();
+    json = json11::Json::parse(title_response->data, err);
     if (!err.empty()) {
         obs_log(LOG_ERROR, "JSON 解析失败: %s", err.c_str());
         http_response_free(title_response);
+        free(curr_version_str.c_str());
         return false;
     }
-    // 检查 code
-    std::string code_str = json["code"].string_value();
-    if (code_str && atoi(code_str) != 0) {
-        obs_log(LOG_ERROR, "设置直播标题失败，错误码: %s", code_str);
-        free(code_str);
+
+    if (json["code"].int_value() != 0) {
+        obs_log(LOG_ERROR, "设置直播标题失败，错误码: %d", json["code"].int_value());
         http_response_free(title_response);
-        free(curr_version_str);
+        free(curr_version_str.c_str());
         return false;
     }
-    free(code_str);
     http_response_free(title_response);
     obs_log(LOG_INFO, "直播标题设置成功");
 
-    // 启动直播
     Param start_params[10];
     param_count = 0;
     start_params[param_count].key = strdup("room_id");
@@ -503,7 +492,7 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
     start_params[param_count].value = strdup(build_str_buf);
     param_count++;
     start_params[param_count].key = strdup("version");
-    start_params[param_count].value = strdup(curr_version_str);
+    start_params[param_count].value = strdup(curr_version_str.c_str());
     param_count++;
     snprintf(ts_str, sizeof(ts_str), "%ld", ts);
     start_params[param_count].key = strdup("ts");
@@ -520,45 +509,42 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
         free(start_params[i].key);
         free(start_params[i].value);
     }
-    free(curr_version_str);
 
     HttpResponse* response = http_post_with_headers("https://api.live.bilibili.com/room/v1/Room/startLive", start_data, default_headers);
-    // 使用 json11 解析 JSON
-    std::string err;
-    json11::Json json = json11::Json::parse(response->data, err);
+    err.clear();
+    json = json11::Json::parse(response->data, err);
     if (!err.empty()) {
         obs_log(LOG_ERROR, "JSON 解析失败: %s", err.c_str());
+        free(curr_version_str.c_str());
         http_response_free(response);
         return false;
     }
     if (!response || response->status != 200) {
         obs_log(LOG_ERROR, "获取推流码失败，状态码: %ld", response ? response->status : 0);
-        if (response) {
-            std::string code_str = json["code"].string_value();
-            if (code_str && atoi(code_str) == 60024) {
-                obs_log(LOG_ERROR, "获取推流码失败: 需要人脸认证, 二维码: %s", qr ? qr : "无二维码数据");
-            } else if (code_str) {
-                obs_log(LOG_ERROR, "获取推流码失败，错误码: %s", code_str);
-            }
-            free(code_str);
+        if (response && json["code"].int_value() == 60024) {
+            obs_log(LOG_ERROR, "获取推流码失败: 需要人脸认证");
+        } else if (json["code"].int_value() != 0) {
+            obs_log(LOG_ERROR, "获取推流码失败，错误码: %d", json["code"].int_value());
         }
+        free(curr_version_str.c_str());
         http_response_free(response);
         return false;
     }
 
-    // 解析 data.rtmp.addr 和 data.rtmp.code
-    *rtmp_addr = json["rtmp"]["addr"].string_value();
-    *rtmp_code = json["rtmp"]["code"].string_value();
-    if (!*rtmp_addr || !*rtmp_code) {
+    std::string addr = json["data"]["rtmp"]["addr"].string_value();
+    std::string code = json["data"]["rtmp"]["code"].string_value();
+    if (addr.empty() || code.empty()) {
         obs_log(LOG_ERROR, "无法解析 JSON 中的 'data.rtmp.addr' 或 'data.rtmp.code' 字段");
-        free(*rtmp_addr);
-        free(*rtmp_code);
+        free(curr_version_str.c_str());
         http_response_free(response);
         return false;
     }
 
-    obs_log(LOG_INFO, "直播已开启！RTMP 地址: %s, 推流码: %s", *rtmp_addr, *rtmp_code);
+    *rtmp_addr = strdup(addr.c_str());
+    *rtmp_code = strdup(code.c_str());
+    free(curr_version_str.c_str());
     http_response_free(response);
+    obs_log(LOG_INFO, "直播已开启！RTMP 地址: %s, 推流码: %s", *rtmp_addr, *rtmp_code);
     return true;
 }
 
@@ -576,7 +562,6 @@ bool bili_stop_live(BiliConfig* config) {
         return false;
     }
 
-    // 使用 json11 解析 JSON
     std::string err;
     json11::Json json = json11::Json::parse(response->data, err);
     if (!err.empty()) {
@@ -585,22 +570,18 @@ bool bili_stop_live(BiliConfig* config) {
         return false;
     }
 
-    // 检查 code
-    char* code_str = json["code"].string_value();
-    if (code_str && atoi(code_str) != 0) {
-        obs_log(LOG_ERROR, "停止直播失败，错误码: %s", code_str);
-        free(code_str);
+    if (json["code"].int_value() != 0) {
+        obs_log(LOG_ERROR, "停止直播失败，错误码: %d", json["code"].int_value());
         http_response_free(response);
         return false;
     }
-    free(code_str);
 
     http_response_free(response);
     obs_log(LOG_INFO, "直播已停止！");
     return true;
 }
 
-// 更新直播间信息（例如分区）
+// 更新直播间信息
 bool bili_update_room_info(BiliConfig* config, int area_id) {
     char id_data[512];
     snprintf(id_data, sizeof(id_data),
@@ -621,15 +602,12 @@ bool bili_update_room_info(BiliConfig* config, int area_id) {
         http_response_free(response);
         return false;
     }
-    // 检查 code
-    char* code_str = json["code"].string_value();
-    if (code_str && atoi(code_str) != 0) {
-        obs_log(LOG_ERROR, "更新直播间信息失败，错误码: %s", code_str);
-        free(code_str);
+
+    if (json["code"].int_value() != 0) {
+        obs_log(LOG_ERROR, "更新直播间信息失败，错误码: %d", json["code"].int_value());
         http_response_free(response);
         return false;
     }
-    free(code_str);
 
     http_response_free(response);
     obs_log(LOG_INFO, "直播间信息更新成功");
