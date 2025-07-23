@@ -27,7 +27,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QLabel>
 #include <QVBoxLayout>
 #include <windows.h>
-#include <QZXing> // 添加 QZXing 头文件
+#include <QZXing.h>
 #include "bili_api.h"
 
 OBS_DECLARE_MODULE()
