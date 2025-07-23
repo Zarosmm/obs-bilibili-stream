@@ -95,7 +95,7 @@ public slots:
             qrLabel->setPixmap(qrPixmap);
         }
         layout->addWidget(qrLabel);
-        QLabel* infoLabel = new QLabel("请使用Bilibili手机客户端扫描二维码登录", qrDialog);
+        QLabel* infoLabel = new QLabel(qrDialog);
         layout->addWidget(infoLabel);
         qrDialog->setLayout(layout);
 
