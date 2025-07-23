@@ -322,7 +322,7 @@ bool obs_module_load(void) {
         return false;
     }
 
-    obs_data_t* settings = obs_get_private_data();
+    obs_data_t* settings = obs_data_create();
     if (settings) {
         const char* room_id = obs_data_get_string(settings, "bilibili_room_id");
         const char* csrf_token = obs_data_get_string(settings, "bilibili_csrf_token");
