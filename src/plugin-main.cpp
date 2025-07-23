@@ -9,6 +9,7 @@
 #include <QLabel>
 #include <QVBoxLayout>
 #include <QTimer>
+#include <QPainter>
 #include <windows.h>
 #include "qrcodegen/qrcodegen.hpp"
 #include "bili_api.hpp"
