@@ -8,6 +8,7 @@
 #include <QDialog>
 #include <QLabel>
 #include <QVBoxLayout>
+#include <QPainter>
 #include <windows.h>
 #include "qrcodegen/qrcodegen.hpp"
 #include "bili_api.h"
