@@ -11,7 +11,7 @@
 #include <QPainter>
 #include <windows.h>
 #include "qrcodegen/qrcodegen.hpp"
-#include "bili_api.h"
+#include "bili_api.hpp"
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE("bilibili-stream-for-obs", "zh-CN")

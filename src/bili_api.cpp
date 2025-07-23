@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <plugin-support.h>
-#include "bili_api.h"
+#include "bili_api.hpp"
 #include "http_client.h"
 #include "json11/json11.hpp"
 
