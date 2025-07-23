@@ -340,15 +340,23 @@ bool obs_module_load(void) {
         plugin->config.title = title && strlen(title) > 0 ? strdup(title) : nullptr;
 
         if (plugin->config.cookies && strlen(plugin->config.cookies) > 0) {
-            char* new_room_id = nullptr;
-            char* new_csrf_token = nullptr;
-            if (bili_get_room_id_and_csrf(plugin->config.cookies, &new_room_id, &new_csrf_token)) {
-                if (plugin->config.room_id) free((void*)plugin->config.room_id);
-                if (plugin->config.csrf_token) free((void*)plugin->config.csrf_token);
-                plugin->config.room_id = new_room_id;
-                plugin->config.csrf_token = new_csrf_token;
-            } else {
-                obs_log(LOG_WARNING, "无法通过 cookies 获取 room_id 和 csrf_token，使用数据库值或默认值");
+            if (bili_check_login_status(config.cookies)) {
+                config.login_status = true;
+                onLoginStatusTriggered();
+
+                char* new_room_id = nullptr;
+                char* new_csrf_token = nullptr;
+                if (bili_get_room_id_and_csrf(config.cookies, &new_room_id, &new_csrf_token)) {
+                    if (config.room_id) free(config.room_id);
+                    if (config.csrf_token) free(config.csrf_token);
+                    config.room_id = new_room_id;
+                    config.csrf_token = new_csrf_token;
+                    obs_log(LOG_INFO, "更新 room_id: %s, csrf_token: %s",
+                            config.room_id ? config.room_id : "无",
+                            config.csrf_token ? config.csrf_token : "无");
+                } else {
+                    obs_log(LOG_WARNING, "无法通过 cookies 获取 room_id 和 csrf_token，保留现有值");
+                }
             }
         }
 
