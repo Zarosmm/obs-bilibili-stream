@@ -548,7 +548,7 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
     version_params[param_count].key = strdup("ts");
     version_params[param_count].value = strdup(ts_str);
     param_count++;
-    appsign(version_params, param_count, app_key, app_sec);
+    appsign(version_params, &param_count, app_key, app_sec);
 
     // 拼接 version_query
     std::string version_query;
@@ -672,7 +672,7 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
     start_params[8].key = strdup("ts");
     start_params[8].value = strdup(ts_str);
     param_count++;
-    appsign(start_params, param_count, app_key, app_sec);
+    appsign(start_params, &param_count, app_key, app_sec);
 
     // 拼接 start_data
     std::string start_data;
