@@ -118,6 +118,7 @@ public slots:
                         if (config.cookies) free(config.cookies);
                         config.cookies = strdup(cookie.toUtf8().constData());
                         obs_log(LOG_INFO, "Cookie 已保存: %s", config.cookies);
+                	char* new_cookies = nullptr;
                 	if (bili_check_login_status(config.cookies, &new_cookies)) {
                 		if (new_cookies) {
                 			char* new_room_id = nullptr;
