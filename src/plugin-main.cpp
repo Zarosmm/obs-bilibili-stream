@@ -328,15 +328,16 @@ bool obs_module_load(void) {
         const char* csrf_token = obs_data_get_string(settings, "bilibili_csrf_token");
         const char* cookies = obs_data_get_string(settings, "bilibili_cookies");
         const char* title = obs_data_get_string(settings, "bilibili_title");
-        bool login_status = obs_data_get_bool(settings, "bilibili_login_status");
-        bool streaming = obs_data_get_bool(settings, "bilibili_streaming");
+		obs_log(LOG_INFO, "从数据库加载配置");
+		obs_log(LOG_INFO, "cookies: %s", cookies);
+		obs_log(LOG_INFO, "csrf_token: %s", csrf_token);
+		obs_log(LOG_INFO, "room_id: %s", room_id);
+		obs_log(LOG_INFO, "title: %s", title);
 
         plugin->config.room_id = room_id && strlen(room_id) > 0 ? strdup(room_id) : nullptr;
         plugin->config.csrf_token = csrf_token && strlen(csrf_token) > 0 ? strdup(csrf_token) : nullptr;
         plugin->config.cookies = cookies && strlen(cookies) > 0 ? strdup(cookies) : nullptr;
         plugin->config.title = title && strlen(title) > 0 ? strdup(title) : nullptr;
-        plugin->config.login_status = login_status;
-        plugin->config.streaming = streaming;
 
         if (plugin->config.cookies && strlen(plugin->config.cookies) > 0) {
             char* new_room_id = nullptr;
