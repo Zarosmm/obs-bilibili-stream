@@ -346,7 +346,7 @@ bool bili_qr_login(char** qrcode_key) {
     }
     obs_log(LOG_INFO, "%s", response->data);
     // 检查 code 是否为 0
-    if (json["code"].int_value() != 0) {
+    if (json["data"]["code"].int_value() != 0) {
         obs_log(LOG_ERROR, "API 返回错误，code: %d, message: %s",
                 json["code"].int_value(), json["message"].string_value().c_str());
         http_response_free(response);
