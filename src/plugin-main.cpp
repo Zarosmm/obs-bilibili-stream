@@ -50,7 +50,8 @@ public:
 	}
 	BiliConfig config;
 private:
-
+	QAction* loginStatusAction = nullptr;
+	QAction* streamAction = nullptr;
         static QPixmap generateQrCodePixmap(const char* qrcode_data) {
                 if (!qrcode_data) {
                         obs_log(LOG_ERROR, "二维码数据为空，无法生成二维码");
@@ -245,9 +246,10 @@ public slots:
 
         void onstreamButtonTriggered() {
         	if (config.streaming) {
-        		if (bili_stop_live()) {
-        			streamButton->setText("开始直播");
+        		if (bili_stop_live(&config)) {
+        			streamAction->setText("开始直播");
         			config.steaming = false;
+        			obs_log(LOG_INFO, "直播已停止");
         		}
         	} else {
         		char* rtmp_addr = nullptr;
@@ -260,19 +262,12 @@ public slots:
         			obs_output_t* output = obs_output_create("rtmp_output", "bilibili_stream", settings, nullptr);
         			obs_output_start(output);
         			obs_data_release(settings);
-        			streamButton->setText("停止直播");
+        			streamAction->setText("停止直播");
         			config.steaming = true;
         		}
         		free(rtmp_addr);
         		free(rtmp_code);
         	}
-        }
-
-        void onStopStreamTriggered() {
-                obs_log(LOG_INFO, "停止直播菜单项被点击");
-                if (bili_stop_live(&config)) {
-    			obs_log(LOG_INFO, "直播已停止");
-                }
         }
 
         void onUpdateRoomInfoTriggered() {
@@ -360,17 +355,17 @@ bool obs_module_load(void)
         auto login = bilibiliMenu->addMenu("登录");
         QAction* manual = login->addAction("手动登录");
         QAction* scanQrcode = login->addAction("扫码登录");
-        QAction* loginStatus = login->addAction("登录状态");
-        loginStatus->setCheckable(true);
-	loginStatus->setEnabled(false);
-        QAction* streamButton = bilibiliMenu->addAction("开始直播");
+        plugin->loginStatusAction = login->addAction("登录状态");
+        plugin->loginStatusAction->setCheckable(true);
+	plugin->loginStatusAction->setEnabled(false);
+        plugin->streamAction = bilibiliMenu->addAction("开始直播");
         QAction* updateRoomInfo = bilibiliMenu->addAction("更新直播间信息");
 
         // 连接信号与槽
         QObject::connect(manual, &QAction::triggered, plugin, &BilibiliStreamPlugin::onManualTriggered);
         QObject::connect(scanQrcode, &QAction::triggered, plugin, &BilibiliStreamPlugin::onScanQrcodeTriggered);
-        QObject::connect(loginStatus, &QAction::triggered, plugin, &BilibiliStreamPlugin::onLoginStatusTriggered);
-        QObject::connect(streamButton, &QAction::triggered, plugin, &BilibiliStreamPlugin::onstreamButtonTriggered);
+        QObject::connect(plugin->loginStatusAction, &QAction::triggered, plugin, &BilibiliStreamPlugin::onLoginStatusTriggered);
+        QObject::connect(plugin->streamAction, &QAction::triggered, plugin, &BilibiliStreamPlugin::onstreamButtonTriggered);
         QObject::connect(updateRoomInfo, &QAction::triggered, plugin, &BilibiliStreamPlugin::onUpdateRoomInfoTriggered);
 
         obs_log(LOG_INFO, "插件加载成功，菜单已添加");
