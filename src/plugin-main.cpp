@@ -118,17 +118,20 @@ public slots:
                         if (config.cookies) free(config.cookies);
                         config.cookies = strdup(cookie.toUtf8().constData());
                         obs_log(LOG_INFO, "Cookie 已保存: %s", config.cookies);
-
-                        char* new_room_id = nullptr;
-                        char* new_csrf_token = nullptr;
-                        if (bili_get_room_id_and_csrf(config.cookies, &new_room_id, &new_csrf_token)) {
-                                if (config.room_id) free((void*)config.room_id);
-                                if (config.csrf_token) free((void*)config.csrf_token);
-                                config.room_id = new_room_id;
-                                config.csrf_token = new_csrf_token;
-                        } else {
-				obs_log(LOG_WARNING, "无法通过 cookies 获取 room_id 和 csrf_token，保留现有值");
-                        }
+                	if (bili_check_login_status(config.cookies, &new_cookies)) {
+                		if (new_cookies) {
+                			char* new_room_id = nullptr;
+					char* new_csrf_token = nullptr;
+					if (bili_get_room_id_and_csrf(config.cookies, &new_room_id, &new_csrf_token)) {
+							if (config.room_id) free((void*)config.room_id);
+							if (config.csrf_token) free((void*)config.csrf_token);
+							config.room_id = new_room_id;
+							config.csrf_token = new_csrf_token;
+					} else {
+						obs_log(LOG_WARNING, "无法通过 cookies 获取 room_id 和 csrf_token，保留现有值");
+					}
+                		}
+                	}
 
                         loginDialog->accept();
                 });
