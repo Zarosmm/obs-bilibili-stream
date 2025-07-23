@@ -20,7 +20,7 @@ static size_t write_callback(void* contents, size_t size, size_t nmemb, void* us
 
 // 新增：用于收集 cookies 的回调函数
 static size_t header_callback(char* buffer, size_t size, size_t nitems, void* userp) {
-	obs_log(LOG_INFO, "%s", buffer);
+
     size_t realsize = size * nitems;
     HttpResponse* response = (HttpResponse*)userp;
     const char* set_cookie = "Set-Cookie: ";
@@ -42,6 +42,7 @@ static size_t header_callback(char* buffer, size_t size, size_t nitems, void* us
             free(new_cookie);
         } else {
             response->cookies = new_cookie;
+        	obs_log(LOG_INFO, "%s", new_cookie);
         }
     }
     return realsize;
