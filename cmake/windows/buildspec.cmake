@@ -18,7 +18,7 @@ function(_check_dependencies_windows)
   set(obs-studio_destination "obs-studio-VERSION")
   set(qzxing_filename "qzxing-VERSION.zip")
   set(qzxing_destination "qzxing-VERSION")
-  set(dependencies_list prebuilt qt6 obs-studio qzxing)
+  set(dependencies_list prebuilt qt6 obs-studio)
 
   _check_dependencies()
 endfunction()

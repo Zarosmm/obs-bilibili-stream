@@ -1,21 +1,3 @@
-/*
-Plugin Name
-Copyright (C) 2025 <Developer> <Email Address>
-
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License along
-with this program. If not, see <https://www.gnu.org/licenses/>
-*/
-
 #include <obs-module.h>
 #include <plugin-support.h>
 #include <obs-frontend-api.h>
@@ -27,7 +9,7 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 #include <QLabel>
 #include <QVBoxLayout>
 #include <windows.h>
-#include <QZXing.h>
+#include "qrcodegen/qrcodegen.hpp"
 #include "bili_api.h"
 
 OBS_DECLARE_MODULE()
@@ -37,7 +19,6 @@ class BilibiliStreamPlugin : public QObject {
     Q_OBJECT
 public:
     explicit BilibiliStreamPlugin(QObject* parent = nullptr) : QObject(parent) {
-        // 初始化 Bilibili 配置（示例值，需替换为实际配置）
         config.room_id = "12345";
         config.csrf_token = "your_csrf_token";
         config.cookies = "your_cookies";
@@ -47,23 +28,42 @@ public:
 private:
     BiliConfig config;
 
-    // 使用 QZXing 生成二维码图像
     QPixmap generateQrCodePixmap(const char* qrcode_data) {
         if (!qrcode_data) {
             obs_log(LOG_ERROR, "二维码数据为空，无法生成二维码");
             return QPixmap();
         }
 
-        // 使用 QZXing 生成二维码
-        QZXing encoder;
-        encoder.setEncoder(QZXing::EncoderFormat_QR_CODE);
-        QImage qrImage = encoder.encodeData(QString(qrcode_data));
-        if (qrImage.isNull()) {
-            obs_log(LOG_ERROR, "QZXing 生成二维码失败");
+        obs_log(LOG_DEBUG, "qrcodegen 输入数据: %s", qrcode_data);
+
+        // 使用 qrcodegen 生成二维码
+        using qrcodegen::QrCode;
+        const QrCode::Ecc errCorLvl = QrCode::Ecc::LOW; // 错误纠正级别
+        const QrCode qr = QrCode::encodeText(qrcode_data, errCorLvl);
+        if (qr.getSize() <= 0) {
+            obs_log(LOG_ERROR, "qrcodegen 生成二维码失败");
             return QPixmap();
         }
 
-        return QPixmap::fromImage(qrImage);
+        // 创建 QImage 绘制二维码
+        int scale = 5; // 每个模块放大 5 倍
+        int size = qr.getSize();
+        QImage image(size * scale, size * scale, QImage::Format_RGB32);
+        image.fill(Qt::white); // 白色背景
+
+        QPainter painter(&image);
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(Qt::black);
+        for (int y = 0; y < size; y++) {
+            for (int x = 0; x < size; x++) {
+                if (qr.getModule(x, y)) {
+                    painter.drawRect(x * scale, y * scale, scale, scale);
+                }
+            }
+        }
+
+        obs_log(LOG_INFO, "qrcodegen 成功生成二维码图像，大小: %dx%d", image.width(), image.height());
+        return QPixmap::fromImage(image);
     }
 
 public slots:
@@ -81,22 +81,29 @@ public slots:
             qrDialog->setWindowTitle("Bilibili 登录二维码");
             QVBoxLayout* layout = new QVBoxLayout(qrDialog);
             QLabel* qrLabel = new QLabel(qrDialog);
-            qrLabel->setPixmap(generateQrCodePixmap(qrcode_data));
+            QPixmap qrPixmap = generateQrCodePixmap(qrcode_data);
+            if (qrPixmap.isNull()) {
+                obs_log(LOG_ERROR, "二维码图像为空，无法显示");
+                qrLabel->setText("无法生成二维码");
+            } else {
+                qrLabel->setPixmap(qrPixmap);
+            }
             layout->addWidget(qrLabel);
             QLabel* infoLabel = new QLabel("请使用Bilibili手机客户端扫描二维码登录", qrDialog);
             layout->addWidget(infoLabel);
             qrDialog->setLayout(layout);
             qrDialog->exec();
 
-            // TODO: 使用 qrcode_key 检查登录状态
+            free(qrcode_data);
+            free(qrcode_key);
+        } else {
+            obs_log(LOG_ERROR, "获取二维码失败");
         }
-        free(qrcode_data);
-        free(qrcode_key);
     }
 
     void onLoginStatusTriggered() {
         obs_log(LOG_INFO, "登录状态菜单项被点击");
-        char* status_data = NULL;
+        char* status_data = nullptr;
         if (bili_check_login_status(&status_data)) {
             obs_log(LOG_INFO, "登录状态数据: %s", status_data ? status_data : "无数据");
         }
@@ -105,11 +112,16 @@ public slots:
 
     void onPushStreamTriggered() {
         obs_log(LOG_INFO, "开始直播菜单项被点击");
-        char* rtmp_addr = NULL;
-        char* rtmp_code = NULL;
+        char* rtmp_addr = nullptr;
+        char* rtmp_code = nullptr;
         if (bili_start_live(&config, 624, &rtmp_addr, &rtmp_code)) {
             obs_log(LOG_INFO, "直播已启动，RTMP 地址: %s, 推流码: %s", rtmp_addr, rtmp_code);
-            // TODO: 将 rtmp_addr 和 rtmp_code 设置到 OBS 输出设置中
+            obs_data_t* settings = obs_data_create();
+            obs_data_set_string(settings, "server", rtmp_addr);
+            obs_data_set_string(settings, "key", rtmp_code);
+            obs_output_t* output = obs_output_create("rtmp_output", "bilibili_stream", settings, nullptr);
+            obs_output_start(output);
+            obs_data_release(settings);
         }
         free(rtmp_addr);
         free(rtmp_code);

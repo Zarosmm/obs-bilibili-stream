@@ -20,15 +20,15 @@ add_library(${CMAKE_PROJECT_NAME} MODULE
         src/bili_api.h
         src/plugin-main.cpp
         ${CMAKE_CURRENT_BINARY_DIR}/src/plugin-support.c
+        src/qrcodegen/qrcodegen.cpp
+        src/qrcodegen/qrcodegen.h
 )
 
 find_package(libobs REQUIRED)
 find_package(CURL REQUIRED)
-find_package(QZxing REQUIRED)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE
         OBS::libobs
         CURL::libcurl
-        QZxing::QZxing
 )
 
 if(ENABLE_FRONTEND_API)
