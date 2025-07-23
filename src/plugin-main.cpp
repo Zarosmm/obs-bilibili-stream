@@ -186,30 +186,30 @@ public slots:
 
 		QTimer* timer = new QTimer(qrDialog);
 		QObject::connect(timer, &QTimer::timeout, [this, qrDialog, timer, &qrcode_key]() mutable {
-			char* cookies = nullptr;
-		        if (bili_qr_login(&qrcode_key, &cookies)) {
-		        	config.cookies = cookies;
-		        	obs_log(LOG_INFO, "%s", config.cookies);
-		                obs_log(LOG_INFO, "二维码登录成功，检查登录状态");
-		                if (bili_check_login_status(config.cookies)) {
-		                	onLoginStatusTriggered();
-		                        char* new_room_id = nullptr;
-		                        char* new_csrf_token = nullptr;
-					if (bili_get_room_id_and_csrf(config.cookies, &new_room_id, &new_csrf_token)) {
-		                                if (config.room_id) free((void*)config.room_id);
-		                                if (config.csrf_token) free((void*)config.csrf_token);
-		                                config.room_id = new_room_id;
-		                                config.csrf_token = new_csrf_token;
-					} else {
-						obs_log(LOG_WARNING, "无法通过 cookies 获取 room_id 和 csrf_token，保留现有值");
-					}
-		                }
+				char* cookies = nullptr;
+                if (bili_qr_login(&qrcode_key, &cookies)) {
+                config.cookies = cookies;
+                obs_log(LOG_INFO, "%s", config.cookies);
+		        obs_log(LOG_INFO, "二维码登录成功，检查登录状态");
+		        if (bili_check_login_status(config.cookies)) {
+						config.login_status = true;
+		                onLoginStatusTriggered();
+		                char* new_room_id = nullptr;
+		                char* new_csrf_token = nullptr;
+						if (bili_get_room_id_and_csrf(config.cookies, &new_room_id, &new_csrf_token)) {
+		                        if (config.room_id) free((void*)config.room_id);
+		                        if (config.csrf_token) free((void*)config.csrf_token);
+		                        config.room_id = new_room_id;
+		                        config.csrf_token = new_csrf_token;
+					    } else {
+					            obs_log(LOG_WARNING, "无法通过 cookies 获取 room_id 和 csrf_token，保留现有值");
+					    }
 		                timer->stop();
 		                qrDialog->accept();
 		        } else {
-				obs_log(LOG_DEBUG, "二维码登录检查：尚未登录");
+				        obs_log(LOG_DEBUG, "二维码登录检查：尚未登录");
 		        }
-			free(cookies);
+				free(cookies);
 		});
 		timer->start(1000);
 
@@ -355,9 +355,9 @@ bool obs_module_load(void)
         auto login = bilibiliMenu->addMenu("登录");
         QAction* manual = login->addAction("手动登录");
         QAction* scanQrcode = login->addAction("扫码登录");
-        plugin->loginStatusAction = login->addAction("登录状态");
+        plugin->loginStatusAction = login->addAction("登录状态: 未登录");
         plugin->loginStatusAction->setCheckable(true);
-	plugin->loginStatusAction->setEnabled(false);
+		plugin->loginStatusAction->setEnabled(false);
         plugin->streamAction = bilibiliMenu->addAction("开始直播");
         QAction* updateRoomInfo = bilibiliMenu->addAction("更新直播间信息");
 
