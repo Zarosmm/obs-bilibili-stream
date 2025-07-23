@@ -408,8 +408,8 @@ bool bili_qr_login(char** qrcode_key) {
 }
 
 // 检查登录状态并获取 cookies
-bool bili_check_login_status(const char* input_cookies, char** output_cookies) {
-    auto headers = build_headers_with_cookie(input_cookies);
+bool bili_check_login_status(const char* cookies) {
+    auto headers = build_headers_with_cookie(cookies);
     HttpResponse* response = http_get_with_headers("https://api.bilibili.com/x/web-interface/nav", headers.data());
     if (!response || response->status != 200) {
         obs_log(LOG_ERROR, "检查登录状态失败，状态码: %ld", response ? response->status : 0);
@@ -430,20 +430,6 @@ bool bili_check_login_status(const char* input_cookies, char** output_cookies) {
         obs_log(LOG_WARNING, "用户未登录");
         http_response_free(response);
         return false;
-    }
-
-    // 从响应中提取 cookies
-    if (response->cookies && strlen(response->cookies) > 0) {
-        *output_cookies = strdup(response->cookies);
-        if (!*output_cookies) {
-            obs_log(LOG_ERROR, "内存分配失败，无法保存 cookies");
-            http_response_free(response);
-            return false;
-        }
-        obs_log(LOG_INFO, "获取 cookies 成功: %s", *output_cookies);
-    } else {
-        *output_cookies = NULL;
-        obs_log(LOG_WARNING, "响应中未找到 cookies");
     }
 
     http_response_free(response);

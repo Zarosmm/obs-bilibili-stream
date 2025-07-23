@@ -118,20 +118,17 @@ public slots:
                         if (config.cookies) free(config.cookies);
                         config.cookies = strdup(cookie.toUtf8().constData());
                         obs_log(LOG_INFO, "Cookie 已保存: %s", config.cookies);
-                	char* new_cookies = nullptr;
-                	if (bili_check_login_status(config.cookies, &new_cookies)) {
-                		if (new_cookies) {
-                			char* new_room_id = nullptr;
-					char* new_csrf_token = nullptr;
-					if (bili_get_room_id_and_csrf(config.cookies, &new_room_id, &new_csrf_token)) {
-							if (config.room_id) free((void*)config.room_id);
-							if (config.csrf_token) free((void*)config.csrf_token);
-							config.room_id = new_room_id;
-							config.csrf_token = new_csrf_token;
-					} else {
-						obs_log(LOG_WARNING, "无法通过 cookies 获取 room_id 和 csrf_token，保留现有值");
-					}
-                		}
+                	if (bili_check_login_status(config.cookies)) {
+                		char* new_room_id = nullptr;
+				char* new_csrf_token = nullptr;
+				if (bili_get_room_id_and_csrf(config.cookies, &new_room_id, &new_csrf_token)) {
+						if (config.room_id) free((void*)config.room_id);
+						if (config.csrf_token) free((void*)config.csrf_token);
+						config.room_id = new_room_id;
+						config.csrf_token = new_csrf_token;
+				} else {
+					obs_log(LOG_WARNING, "无法通过 cookies 获取 room_id 和 csrf_token，保留现有值");
+				}
                 	}
 
                         loginDialog->accept();
@@ -177,24 +174,19 @@ public slots:
 		QObject::connect(timer, &QTimer::timeout, [this, qrDialog, timer, &qrcode_key]() mutable {
 		        if (bili_qr_login(&qrcode_key)) {
 		                obs_log(LOG_INFO, "二维码登录成功，检查登录状态以获取 cookies");
-		                char* new_cookies = nullptr;
-		                if (bili_check_login_status(config.cookies, &new_cookies)) {
-		                        if (new_cookies) {
-		                                if (config.cookies) free(config.cookies);
-		                                config.cookies = new_cookies;
-
-		                                char* new_room_id = nullptr;
-		                                char* new_csrf_token = nullptr;
-						if (bili_get_room_id_and_csrf(config.cookies, &new_room_id, &new_csrf_token)) {
-		                                    if (config.room_id) free((void*)config.room_id);
-		                                    if (config.csrf_token) free((void*)config.csrf_token);
-		                                    config.room_id = new_room_id;
-		                                    config.csrf_token = new_csrf_token;
-						} else {
-							obs_log(LOG_WARNING, "无法通过 cookies 获取 room_id 和 csrf_token，保留现有值");
-						}
-
-		                        }
+		                if (bili_check_login_status(config.cookies)) {
+		                        if (config.cookies) free(config.cookies);
+		                        config.cookies = new_cookies;
+		                        char* new_room_id = nullptr;
+		                        char* new_csrf_token = nullptr;
+					if (bili_get_room_id_and_csrf(config.cookies, &new_room_id, &new_csrf_token)) {
+		                                if (config.room_id) free((void*)config.room_id);
+		                                if (config.csrf_token) free((void*)config.csrf_token);
+		                                config.room_id = new_room_id;
+		                                config.csrf_token = new_csrf_token;
+					} else {
+						obs_log(LOG_WARNING, "无法通过 cookies 获取 room_id 和 csrf_token，保留现有值");
+					}
 		                }
 		                timer->stop();
 		                qrDialog->accept();
@@ -212,60 +204,55 @@ public slots:
 		});
 
 		qrDialog->exec();
-    }
+	}
 
-    void onLoginStatusTriggered() {
-            obs_log(LOG_INFO, "登录状态菜单项被点击");
-            char* new_cookies = nullptr;
-            if (bili_check_login_status(config.cookies, &new_cookies)) {
-                    obs_log(LOG_INFO, "登录状态：已登录");
-                    if (new_cookies) {
-                            if (config.cookies) {
-					free(config.cookies);
-                            }
-                            config.cookies = new_cookies;
-                            obs_log(LOG_INFO, "更新 cookies: %s", config.cookies ? config.cookies : "无 cookies");
-                    } else {
-				obs_log(LOG_WARNING, "未获取到新的 cookies");
-                    }
-            } else {
-                    obs_log(LOG_WARNING, "登录状态：未登录");
-                    if (new_cookies) {
-				free(new_cookies);
-                    }
-            }
-    }
+        void onLoginStatusTriggered() {
+                obs_log(LOG_INFO, "登录状态菜单项被点击");
+                if (bili_check_login_status(config.cookies)) {
+                        obs_log(LOG_INFO, "登录状态：已登录");
+                        if (config.cookies) {
+                        	    free(config.cookies);
+                        }
+                        config.cookies = new_cookies;
+                        obs_log(LOG_INFO, "更新 cookies: %s", config.cookies ? config.cookies : "无 cookies");
+                } else {
+                        obs_log(LOG_WARNING, "登录状态：未登录");
+                        if (new_cookies) {
+    				free(new_cookies);
+                        }
+                }
+        }
 
-    void onPushStreamTriggered() {
-            obs_log(LOG_INFO, "开始直播菜单项被点击");
-            char* rtmp_addr = nullptr;
-            char* rtmp_code = nullptr;
-            if (bili_start_live(&config, 624, &rtmp_addr, &rtmp_code)) {
-                    obs_log(LOG_INFO, "直播已启动，RTMP 地址: %s, 推流码: %s", rtmp_addr, rtmp_code);
-                    obs_data_t* settings = obs_data_create();
-                    obs_data_set_string(settings, "server", rtmp_addr);
-                    obs_data_set_string(settings, "key", rtmp_code);
-                    obs_output_t* output = obs_output_create("rtmp_output", "bilibili_stream", settings, nullptr);
-                    obs_output_start(output);
-                    obs_data_release(settings);
-            }
-            free(rtmp_addr);
-            free(rtmp_code);
-    }
+        void onPushStreamTriggered() {
+                obs_log(LOG_INFO, "开始直播菜单项被点击");
+                char* rtmp_addr = nullptr;
+                char* rtmp_code = nullptr;
+                if (bili_start_live(&config, 624, &rtmp_addr, &rtmp_code)) {
+                        obs_log(LOG_INFO, "直播已启动，RTMP 地址: %s, 推流码: %s", rtmp_addr, rtmp_code);
+                        obs_data_t* settings = obs_data_create();
+                        obs_data_set_string(settings, "server", rtmp_addr);
+                        obs_data_set_string(settings, "key", rtmp_code);
+                        obs_output_t* output = obs_output_create("rtmp_output", "bilibili_stream", settings, nullptr);
+                        obs_output_start(output);
+                        obs_data_release(settings);
+                }
+                free(rtmp_addr);
+                free(rtmp_code);
+        }
 
-    void onStopStreamTriggered() {
-            obs_log(LOG_INFO, "停止直播菜单项被点击");
-            if (bili_stop_live(&config)) {
-			obs_log(LOG_INFO, "直播已停止");
-            }
-    }
+        void onStopStreamTriggered() {
+                obs_log(LOG_INFO, "停止直播菜单项被点击");
+                if (bili_stop_live(&config)) {
+    			obs_log(LOG_INFO, "直播已停止");
+                }
+        }
 
-    void onUpdateRoomInfoTriggered() {
-            obs_log(LOG_INFO, "更新直播间信息菜单项被点击");
-            if (bili_update_room_info(&config, 642)) {
-			obs_log(LOG_INFO, "直播间信息更新成功");
-            }
-    }
+        void onUpdateRoomInfoTriggered() {
+                obs_log(LOG_INFO, "更新直播间信息菜单项被点击");
+                if (bili_update_room_info(&config, 642)) {
+    			obs_log(LOG_INFO, "直播间信息更新成功");
+                }
+        }
 };
 
 static BilibiliStreamPlugin* plugin = nullptr;
@@ -349,6 +336,7 @@ bool obs_module_load(void)
         QAction* scanQrcode = login->addAction("扫码登录");
         QAction* loginStatus = login->addAction("登录状态");
         loginStatus->setCheckable(true);
+	loginStatus->setEnable(false);
         QAction* pushStream = bilibiliMenu->addAction("开始直播");
         QAction* stopStream = bilibiliMenu->addAction("停止直播");
         QAction* updateRoomInfo = bilibiliMenu->addAction("更新直播间信息");
