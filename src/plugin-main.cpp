@@ -49,9 +49,9 @@ public:
                 }
 	}
 	BiliConfig config;
-private:
 	QAction* loginStatusAction = nullptr;
 	QAction* streamAction = nullptr;
+private:
         static QPixmap generateQrCodePixmap(const char* qrcode_data) {
                 if (!qrcode_data) {
                         obs_log(LOG_ERROR, "二维码数据为空，无法生成二维码");
@@ -248,7 +248,7 @@ public slots:
         	if (config.streaming) {
         		if (bili_stop_live(&config)) {
         			streamAction->setText("开始直播");
-        			config.steaming = false;
+        			config.streaming = false;
         			obs_log(LOG_INFO, "直播已停止");
         		}
         	} else {
@@ -263,7 +263,7 @@ public slots:
         			obs_output_start(output);
         			obs_data_release(settings);
         			streamAction->setText("停止直播");
-        			config.steaming = true;
+        			config.streaming = true;
         		}
         		free(rtmp_addr);
         		free(rtmp_code);
