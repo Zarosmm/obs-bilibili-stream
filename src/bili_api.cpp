@@ -361,7 +361,6 @@ bool bili_get_qrcode(const char* cookies, char** qrcode_data, char** qrcode_key)
     }
 
     obs_log(LOG_INFO, "获取二维码成功，URL: %s, Key: %s", *qrcode_data, *qrcode_key);
-    http_response_free(response);
     return true;
 }
 
