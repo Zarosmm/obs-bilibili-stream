@@ -176,7 +176,7 @@ public slots:
             qrLabel->setPixmap(qrPixmap);
         }
         layout->addWidget(qrLabel);
-        QLabel* infoLabel = new QLabel("请使用Bilibili手机客户端扫描二维码登录", qrDialog);
+        QLabel* infoLabel = new QLabel("使用手机扫描二维码登录", qrDialog);
         layout->addWidget(infoLabel);
         qrDialog->setLayout(layout);
 
@@ -221,7 +221,6 @@ public slots:
                     obs_log(LOG_WARNING, "登录状态检查失败");
                     config.login_status = false;
                     onLoginStatusTriggered();
-                    infoLabel->setText("登录状态检查失败，请重试");
                 }
             }
         });
