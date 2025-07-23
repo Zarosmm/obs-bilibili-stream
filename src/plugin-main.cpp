@@ -17,7 +17,7 @@
 #include "bili_api.hpp"
 
 OBS_DECLARE_MODULE()
-OBS_MODULE_USE_DEFAULT_LOCALE("bilibili-stream-for-obs", "zh-CN")
+OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
 
 class BilibiliStreamPlugin : public QObject {
     Q_OBJECT
