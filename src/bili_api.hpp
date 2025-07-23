@@ -17,7 +17,7 @@ extern "C" {
 	void bili_api_init(void);
 	void bili_api_cleanup(void);
 	bool bili_get_qrcode(const char* cookies, char** qrcode_data, char** qrcode_key);
-	bool bili_qr_login(char** qrcode_key);
+	bool bili_qr_login(char** qrcode_key, const char* cookies);
 	bool bili_get_room_id_and_csrf(const char* cookies, char** room_id, char** csrf_token);
 	bool bili_check_login_status(const char* cookies);
 	bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** rtmp_code);
