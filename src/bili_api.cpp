@@ -282,6 +282,11 @@ static std::vector<const char*> build_headers_with_cookie(const char* cookies) {
     return headers;
 }
 
+// 清理请求头
+void free_headers(std::vector<std::string>& headers) {
+    headers.clear(); // std::vector 自动释放内部字符串
+}
+
 // 获取当前时间戳
 static long get_current_timestamp(const char* cookies) {
     auto headers = build_headers_with_cookie(cookies);
@@ -571,7 +576,7 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
         if (version_response) http_response_free(version_response);
         return false;
     }
-
+	obs_log(LOG_DEBUG, "version_response data: %s", version_response->data ? version_response->data : "无数据");
     std::string err;
     json11::Json json = json11::Json::parse(version_response->data, err);
     http_response_free(version_response);
@@ -618,7 +623,7 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
         if (title_response) http_response_free(title_response);
         return false;
     }
-
+	obs_log(LOG_DEBUG, "title_response data: %s", title_response->data ? title_response->data : "无数据");
     err.clear();
     json = json11::Json::parse(title_response->data, err);
     http_response_free(title_response);
@@ -634,6 +639,7 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
     obs_log(LOG_INFO, "直播标题设置成功: %s", config->title);
 
     // 构造 start_params
+	Param start_params[10];
     param_count = 0;
     start_params[0].key = strdup("room_id");
     start_params[0].value = strdup(config->room_id);
@@ -701,7 +707,7 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
         }
         return false;
     }
-
+	obs_log(LOG_DEBUG, "start_response data: %s", response->data ? response->data : "无数据");
     err.clear();
     json = json11::Json::parse(response->data, err);
     if (!err.empty()) {
