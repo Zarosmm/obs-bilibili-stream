@@ -378,7 +378,7 @@ bool bili_qr_login(const char* cookies, char** qrcode_key) {
 }
 
 // 检查登录状态并获取 cookies
-bool bili_check_login_status(char** cookies) {
+bool bili_check_login_status(const char* input_cookies, char** output_cookies) {
     auto headers = build_headers_with_cookie(input_cookies);
     HttpResponse* response = http_get_with_headers("https://api.bilibili.com/x/web-interface/nav", headers.data());
     if (!response || response->status != 200) {
