@@ -288,28 +288,35 @@ static long get_current_timestamp(const char* cookies) {
     HttpResponse* response = http_get_with_headers("https://api.bilibili.com/x/report/click/now", headers.data());
     if (!response || response->status != 200) {
         obs_log(LOG_ERROR, "获取时间戳失败，状态码: %ld", response ? response->status : 0);
-        http_response_free(response);
+        if (response) http_response_free(response);
         return 0;
     }
 
     // 使用 json11 解析 JSON
     std::string err;
     json11::Json json = json11::Json::parse(response->data, err);
+    http_response_free(response);
     if (!err.empty()) {
         obs_log(LOG_ERROR, "JSON 解析失败: %s", err.c_str());
-        http_response_free(response);
         return 0;
     }
-	http_response_free(response);
-	const auto& now_value = json["data"]["now"];
 
-    // 提取 now
-    std::string now_str = std::to_string(now_value.int_value());
-    if (now_str.empty()) {
-        obs_log(LOG_ERROR, "无法提取 data.now");
+    // 检查 code 是否为 0
+    if (json["code"].int_value() != 0) {
+        obs_log(LOG_ERROR, "API 返回错误，code: %d, message: %s",
+                json["code"].int_value(), json["message"].string_value().c_str());
         return 0;
     }
-    long ts = atol(now_str.c_str());
+
+    // 提取 data.now
+    const auto& now_value = json["data"]["now"];
+    if (!now_value.is_number()) {
+        obs_log(LOG_ERROR, "data.now 不是有效数字");
+        return 0;
+    }
+
+    long ts = now_value.int_value();
+    obs_log(LOG_DEBUG, "成功获取时间戳: %ld", ts);
     return ts;
 }
 
@@ -505,142 +512,196 @@ bool bili_get_room_id_and_csrf(const char* cookies, char** room_id, char** csrf_
 
 // 启动直播
 bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** rtmp_code) {
+    if (!config || !rtmp_addr || !rtmp_code || !config->room_id || !config->title || !config->csrf_token) {
+        obs_log(LOG_ERROR, "无效参数: config=%p, rtmp_addr=%p, rtmp_code=%p, room_id=%s, title=%s, csrf_token=%s",
+                config, rtmp_addr, rtmp_code,
+                config && config->room_id ? config->room_id : "空",
+                config && config->title ? config->title : "空",
+                config && config->csrf_token ? config->csrf_token : "空");
+        return false;
+    }
+
     const char* app_key = "aae92bc66f3edfab";
     const char* app_sec = "af125a0d5279fd576c1b4418a3e8276d";
 
+    // 获取时间戳
+    long ts = get_current_timestamp(config->cookies);
+    if (ts == 0) {
+        obs_log(LOG_ERROR, "无法获取时间戳");
+        return false;
+    }
+    char ts_str[32];
+    snprintf(ts_str, sizeof(ts_str), "%ld", ts);
+    obs_log(LOG_DEBUG, "时间戳字符串: %s", ts_str);
+
+    // 构造 version_params
     Param version_params[10];
     size_t param_count = 0;
     version_params[param_count].key = strdup("system_version");
     version_params[param_count].value = strdup("2");
     param_count++;
-    long ts = get_current_timestamp(config->cookies);
-    if (ts == 0) return false;
-    char ts_str[32];
-    snprintf(ts_str, sizeof(ts_str), "%ld", ts);
     version_params[param_count].key = strdup("ts");
     version_params[param_count].value = strdup(ts_str);
     param_count++;
-    appsign(version_params, &param_count, app_key, app_sec);
+    appsign(version_params, param_count, app_key, app_sec);
 
-    char version_query[1024] = "";
+    // 拼接 version_query
+    std::string version_query;
     for (size_t i = 0; i < param_count; i++) {
-        if (i > 0) strncat(version_query, "&", sizeof(version_query) - strlen(version_query) - 1);
-        strncat(version_query, version_params[i].key, sizeof(version_query) - strlen(version_query) - 1);
-        strncat(version_query, "=", sizeof(version_query) - strlen(version_query) - 1);
-        strncat(version_query, version_params[i].value, sizeof(version_query) - strlen(version_query) - 1);
+        if (i > 0) version_query += "&";
+        version_query += version_params[i].key;
+        version_query += "=";
+        version_query += version_params[i].value;
         free(version_params[i].key);
         free(version_params[i].value);
     }
 
+    // 获取直播版本信息
     char version_url[2048];
     snprintf(version_url, sizeof(version_url),
              "https://api.live.bilibili.com/xlive/app-blink/v1/liveVersionInfo/getHomePageLiveVersion?%s",
-             version_query);
+             version_query.c_str());
 
     auto headers = build_headers_with_cookie(config->cookies);
     HttpResponse* version_response = http_get_with_headers(version_url, headers.data());
+    free_headers(headers);
     if (!version_response || version_response->status != 200) {
-        obs_log(LOG_ERROR, "获取直播版本信息失败，状态码: %ld", version_response ? version_response->status : 0);
-        http_response_free(version_response);
+        obs_log(LOG_ERROR, "获取直播版本信息失败，状态码: %ld, URL: %s",
+                version_response ? version_response->status : 0, version_url);
+        if (version_response) http_response_free(version_response);
         return false;
     }
 
     std::string err;
     json11::Json json = json11::Json::parse(version_response->data, err);
+    http_response_free(version_response);
     if (!err.empty()) {
         obs_log(LOG_ERROR, "JSON 解析失败: %s", err.c_str());
-        http_response_free(version_response);
+        return false;
+    }
+    if (json["code"].int_value() != 0) {
+        obs_log(LOG_ERROR, "获取直播版本信息失败，错误码: %d, 消息: %s",
+                json["code"].int_value(), json["message"].string_value().c_str());
         return false;
     }
 
     std::string build_str = json["data"]["build"].string_value();
     std::string curr_version_str = json["data"]["curr_version"].string_value();
     if (build_str.empty() || curr_version_str.empty()) {
-        obs_log(LOG_ERROR, "无法提取 data.build 或 data.curr_version");
-        http_response_free(version_response);
+        obs_log(LOG_ERROR, "无法提取 data.build 或 data.curr_version: build=%s, curr_version=%s",
+                build_str.c_str(), curr_version_str.c_str());
         return false;
     }
 
     long build = atol(build_str.c_str());
-    http_response_free(version_response);
+    if (build == 0) {
+        obs_log(LOG_ERROR, "无效的 build 值: %s", build_str.c_str());
+        return false;
+    }
 
-    char title_data[512];
-    snprintf(title_data, sizeof(title_data),
-             "room_id=%s&platform=pc_link&title=%s&csrf_token=%s&csrf=%s",
-             config->room_id, config->title, config->csrf_token, config->csrf_token);
+    // 设置直播标题
+    std::string title_data = "room_id=" + std::string(config->room_id) +
+                            "&platform=pc_link&title=" + std::string(config->title) +
+                            "&csrf_token=" + std::string(config->csrf_token) +
+                            "&csrf=" + std::string(config->csrf_token);
+    if (title_data.length() >= 512) {
+        obs_log(LOG_ERROR, "直播标题数据过长: %zu 字节", title_data.length());
+        return false;
+    }
 
     headers = build_headers_with_cookie(config->cookies);
-    HttpResponse* title_response = http_post_with_headers("https://api.live.bilibili.com/room/v1/Room/update", title_data, headers.data());
+    HttpResponse* title_response = http_post_with_headers("https://api.live.bilibili.com/room/v1/Room/update",
+                                                         title_data.c_str(), headers.data());
+    free_headers(headers);
     if (!title_response || title_response->status != 200) {
         obs_log(LOG_ERROR, "设置直播标题失败，状态码: %ld", title_response ? title_response->status : 0);
-        http_response_free(title_response);
+        if (title_response) http_response_free(title_response);
         return false;
     }
 
     err.clear();
     json = json11::Json::parse(title_response->data, err);
+    http_response_free(title_response);
     if (!err.empty()) {
         obs_log(LOG_ERROR, "JSON 解析失败: %s", err.c_str());
-        http_response_free(title_response);
         return false;
     }
-
     if (json["code"].int_value() != 0) {
-        obs_log(LOG_ERROR, "设置直播标题失败，错误码: %d", json["code"].int_value());
-        http_response_free(title_response);
+        obs_log(LOG_ERROR, "设置直播标题失败，错误码: %d, 消息: %s",
+                json["code"].int_value(), json["message"].string_value().c_str());
         return false;
     }
-    http_response_free(title_response);
-    obs_log(LOG_INFO, "直播标题设置成功");
+    obs_log(LOG_INFO, "直播标题设置成功: %s", config->title);
 
-    Param start_params[10];
+    // 构造 start_params
     param_count = 0;
-    start_params[param_count].key = strdup("room_id");
-    start_params[param_count].value = strdup(config->room_id);
+    start_params[0].key = strdup("room_id");
+    start_params[0].value = strdup(config->room_id);
     param_count++;
-    start_params[param_count].key = strdup("platform");
-    start_params[param_count].value = strdup("pc_link");
+    start_params[1].key = strdup("platform");
+    start_params[1].value = strdup("pc_link");
     param_count++;
     char area_str[16];
     snprintf(area_str, sizeof(area_str), "%d", area_id);
-    start_params[param_count].key = strdup("area_v2");
-    start_params[param_count].value = strdup(area_str);
+    start_params[2].key = strdup("area_v2");
+    start_params[2].value = strdup(area_str);
     param_count++;
-    start_params[param_count].key = strdup("backup_stream");
-    start_params[param_count].value = strdup("0");
+    start_params[3].key = strdup("backup_stream");
+    start_params[3].value = strdup("0");
     param_count++;
-    start_params[param_count].key = strdup("csrf_token");
-    start_params[param_count].value = strdup(config->csrf_token);
+    start_params[4].key = strdup("csrf_token");
+    start_params[4].value = strdup(config->csrf_token);
     param_count++;
-    start_params[param_count].key = strdup("csrf");
-    start_params[param_count].value = strdup(config->csrf_token);
+    start_params[5].key = strdup("csrf");
+    start_params[5].value = strdup(config->csrf_token);
     param_count++;
     char build_str_buf[32];
     snprintf(build_str_buf, sizeof(build_str_buf), "%ld", build);
-    start_params[param_count].key = strdup("build");
-    start_params[param_count].value = strdup(build_str_buf);
+    start_params[6].key = strdup("build");
+    start_params[6].value = strdup(build_str_buf);
     param_count++;
-    start_params[param_count].key = strdup("version");
-    start_params[param_count].value = strdup(curr_version_str.c_str());
+    start_params[7].key = strdup("version");
+    start_params[7].value = strdup(curr_version_str.c_str());
     param_count++;
-    snprintf(ts_str, sizeof(ts_str), "%ld", ts);
-    start_params[param_count].key = strdup("ts");
-    start_params[param_count].value = strdup(ts_str);
+    start_params[8].key = strdup("ts");
+    start_params[8].value = strdup(ts_str);
     param_count++;
-    appsign(start_params, &param_count, app_key, app_sec);
+    appsign(start_params, param_count, app_key, app_sec);
 
-    char start_data[1024] = "";
+    // 拼接 start_data
+    std::string start_data;
     for (size_t i = 0; i < param_count; i++) {
-        if (i > 0) strncat(start_data, "&", sizeof(start_data) - strlen(start_data) - 1);
-        strncat(start_data, start_params[i].key, sizeof(start_data) - strlen(start_data) - 1);
-        strncat(start_data, "=", sizeof(start_data) - strlen(start_data) - 1);
-        strncat(start_data, start_params[i].value, sizeof(start_data) - strlen(start_data) - 1);
+        if (i > 0) start_data += "&";
+        start_data += start_params[i].key;
+        start_data += "=";
+        start_data += start_params[i].value;
         free(start_params[i].key);
         free(start_params[i].value);
     }
 
+    // 启动直播
     headers = build_headers_with_cookie(config->cookies);
-    HttpResponse* response = http_post_with_headers("https://api.live.bilibili.com/room/v1/Room/startLive", start_data, headers.data());
+    HttpResponse* response = http_post_with_headers("https://api.live.bilibili.com/room/v1/Room/startLive",
+                                                   start_data.c_str(), headers.data());
+    free_headers(headers);
+    if (!response || response->status != 200) {
+        obs_log(LOG_ERROR, "获取推流码失败，状态码: %ld, URL: %s",
+                response ? response->status : 0, "https://api.live.bilibili.com/room/v1/Room/startLive");
+        if (response) {
+            err.clear();
+            json = json11::Json::parse(response->data, err);
+            if (err.empty() && json["code"].int_value() != 0) {
+                obs_log(LOG_ERROR, "获取推流码失败，错误码: %d, 消息: %s",
+                        json["code"].int_value(), json["message"].string_value().c_str());
+                if (json["code"].int_value() == 60024) {
+                    obs_log(LOG_ERROR, "需要人脸认证");
+                }
+            }
+            http_response_free(response);
+        }
+        return false;
+    }
+
     err.clear();
     json = json11::Json::parse(response->data, err);
     if (!err.empty()) {
@@ -648,13 +709,9 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
         http_response_free(response);
         return false;
     }
-    if (!response || response->status != 200) {
-        obs_log(LOG_ERROR, "获取推流码失败，状态码: %ld", response ? response->status : 0);
-        if (response && json["code"].int_value() == 60024) {
-            obs_log(LOG_ERROR, "获取推流码失败: 需要人脸认证");
-        } else if (json["code"].int_value() != 0) {
-            obs_log(LOG_ERROR, "获取推流码失败，错误码: %d", json["code"].int_value());
-        }
+    if (json["code"].int_value() != 0) {
+        obs_log(LOG_ERROR, "获取推流码失败，错误码: %d, 消息: %s",
+                json["code"].int_value(), json["message"].string_value().c_str());
         http_response_free(response);
         return false;
     }
@@ -662,7 +719,8 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
     std::string addr = json["data"]["rtmp"]["addr"].string_value();
     std::string code = json["data"]["rtmp"]["code"].string_value();
     if (addr.empty() || code.empty()) {
-        obs_log(LOG_ERROR, "无法解析 JSON 中的 'data.rtmp.addr' 或 'data.rtmp.code' 字段");
+        obs_log(LOG_ERROR, "无法解析 JSON 中的 'data.rtmp.addr' 或 'data.rtmp.code': addr=%s, code=%s",
+                addr.c_str(), code.c_str());
         http_response_free(response);
         return false;
     }
