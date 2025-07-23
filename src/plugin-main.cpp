@@ -43,7 +43,7 @@ private:
         // 使用 qrcodegen 生成二维码
         using qrcodegen::QrCode;
 
-        const QrCode::Ecc errCorLvl = QrCode::Ecc::LOW; // 错误纠正级别
+        constexpr QrCode::Ecc errCorLvl = QrCode::Ecc::LOW; // 错误纠正级别
         const QrCode qr = QrCode::encodeText(qrcode_data, errCorLvl);
         if (qr.getSize() <= 0) {
             obs_log(LOG_ERROR, "qrcodegen 生成二维码失败");
