@@ -181,6 +181,7 @@ public slots:
 
 		QTimer* timer = new QTimer(qrDialog);
 		QObject::connect(timer, &QTimer::timeout, [this, qrDialog, timer, &qrcode_key]() mutable {
+			char* cookies = nullptr;
 		        if (bili_qr_login(&qrcode_key, &cookies)) {
 		        	config.cookies = cookies;
 		        	obs_log(LOG_INFO, "%s", config.cookies);
@@ -202,6 +203,7 @@ public slots:
 		        } else {
 				obs_log(LOG_DEBUG, "二维码登录检查：尚未登录");
 		        }
+			free(cookies);
 		});
 		timer->start(1000);
 
