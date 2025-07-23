@@ -260,11 +260,6 @@ static void appsign(Param* params, size_t* param_count, const char* app_key, con
     params[*param_count].key = strdup("sign");
     params[*param_count].value = strdup(md5_hex);
     (*param_count)++;
-
-    for (size_t i = 0; i < *param_count - 1; i++) {
-        free(params[i].key);
-        free(params[i].value);
-    }
 }
 
 // 动态构造包含 Cookie 的请求头
@@ -283,8 +278,8 @@ static std::vector<const char*> build_headers_with_cookie(const char* cookies) {
 }
 
 // 清理请求头
-void free_headers(std::vector<std::string>& headers) {
-    headers.clear(); // std::vector 自动释放内部字符串
+void free_headers(std::vector<const char*>& headers) {
+    headers.clear(); // 清空 vector，不释放静态内存
 }
 
 // 获取当前时间戳
@@ -339,6 +334,7 @@ void bili_api_cleanup(void) {
 bool bili_get_qrcode(const char* cookies, char** qrcode_data, char** qrcode_key) {
     auto headers = build_headers_with_cookie(cookies);
     HttpResponse* response = http_get_with_headers("https://passport.bilibili.com/x/passport-login/web/qrcode/generate", headers.data());
+	free_headers(headers);
     if (!response || response->status != 200) {
         obs_log(LOG_ERROR, "获取二维码失败，状态码: %ld", response ? response->status : 0);
         http_response_free(response);
@@ -420,6 +416,7 @@ bool bili_qr_login(char** qrcode_key, char** cookies){
 bool bili_check_login_status(const char* cookies) {
     auto headers = build_headers_with_cookie(cookies);
     HttpResponse* response = http_get_with_headers("https://api.bilibili.com/x/web-interface/nav", headers.data());
+	free_headers(headers);
     if (!response || response->status != 200) {
         obs_log(LOG_ERROR, "检查登录状态失败，状态码: %ld", response ? response->status : 0);
         http_response_free(response);
@@ -466,6 +463,7 @@ bool bili_get_room_id_and_csrf(const char* cookies, char** room_id, char** csrf_
     // 发送请求
     auto headers = build_headers_with_cookie(cookies);
     HttpResponse* response = http_get_with_headers(url, headers.data());
+	free_headers(headers);
     free(dede_user_id); // 释放临时内存
 
     if (!response || response->status != 200) {
@@ -548,6 +546,14 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
     version_params[param_count].key = strdup("ts");
     version_params[param_count].value = strdup(ts_str);
     param_count++;
+    if (param_count >= 10) {
+        obs_log(LOG_ERROR, "version_params 数组溢出");
+        for (size_t i = 0; i < param_count; i++) {
+            free(version_params[i].key);
+            free(version_params[i].value);
+        }
+        return false;
+    }
     appsign(version_params, &param_count, app_key, app_sec);
 
     // 拼接 version_query
@@ -569,14 +575,14 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
 
     auto headers = build_headers_with_cookie(config->cookies);
     HttpResponse* version_response = http_get_with_headers(version_url, headers.data());
-    free_headers(headers);
+    free_headers(headers); // 修复：正确调用 free_headers
     if (!version_response || version_response->status != 200) {
         obs_log(LOG_ERROR, "获取直播版本信息失败，状态码: %ld, URL: %s",
                 version_response ? version_response->status : 0, version_url);
         if (version_response) http_response_free(version_response);
         return false;
     }
-	obs_log(LOG_DEBUG, "version_response data: %s", version_response->data ? version_response->data : "无数据");
+    obs_log(LOG_DEBUG, "version_response data: %s", version_response->data ? version_response->data : "无数据");
     std::string err;
     json11::Json json = json11::Json::parse(version_response->data, err);
     http_response_free(version_response);
@@ -617,13 +623,13 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
     headers = build_headers_with_cookie(config->cookies);
     HttpResponse* title_response = http_post_with_headers("https://api.live.bilibili.com/room/v1/Room/update",
                                                          title_data.c_str(), headers.data());
-    free_headers(headers);
+    free_headers(headers); // 修复：正确调用 free_headers
     if (!title_response || title_response->status != 200) {
         obs_log(LOG_ERROR, "设置直播标题失败，状态码: %ld", title_response ? title_response->status : 0);
         if (title_response) http_response_free(title_response);
         return false;
     }
-	obs_log(LOG_DEBUG, "title_response data: %s", title_response->data ? title_response->data : "无数据");
+    obs_log(LOG_DEBUG, "title_response data: %s", title_response->data ? title_response->data : "无数据");
     err.clear();
     json = json11::Json::parse(title_response->data, err);
     http_response_free(title_response);
@@ -639,39 +645,47 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
     obs_log(LOG_INFO, "直播标题设置成功: %s", config->title);
 
     // 构造 start_params
-	Param start_params[10];
+    Param start_params[10];
     param_count = 0;
-    start_params[0].key = strdup("room_id");
-    start_params[0].value = strdup(config->room_id);
+    start_params[param_count].key = strdup("room_id");
+    start_params[param_count].value = strdup(config->room_id);
     param_count++;
-    start_params[1].key = strdup("platform");
-    start_params[1].value = strdup("pc_link");
+    start_params[param_count].key = strdup("platform");
+    start_params[param_count].value = strdup("pc_link");
     param_count++;
     char area_str[16];
     snprintf(area_str, sizeof(area_str), "%d", area_id);
-    start_params[2].key = strdup("area_v2");
-    start_params[2].value = strdup(area_str);
+    start_params[param_count].key = strdup("area_v2");
+    start_params[param_count].value = strdup(area_str);
     param_count++;
-    start_params[3].key = strdup("backup_stream");
-    start_params[3].value = strdup("0");
+    start_params[param_count].key = strdup("backup_stream");
+    start_params[param_count].value = strdup("0");
     param_count++;
-    start_params[4].key = strdup("csrf_token");
-    start_params[4].value = strdup(config->csrf_token);
+    start_params[param_count].key = strdup("csrf_token");
+    start_params[param_count].value = strdup(config->csrf_token);
     param_count++;
-    start_params[5].key = strdup("csrf");
-    start_params[5].value = strdup(config->csrf_token);
+    start_params[param_count].key = strdup("csrf");
+    start_params[param_count].value = strdup(config->csrf_token);
     param_count++;
     char build_str_buf[32];
     snprintf(build_str_buf, sizeof(build_str_buf), "%ld", build);
-    start_params[6].key = strdup("build");
-    start_params[6].value = strdup(build_str_buf);
+    start_params[param_count].key = strdup("build");
+    start_params[param_count].value = strdup(build_str_buf);
     param_count++;
-    start_params[7].key = strdup("version");
-    start_params[7].value = strdup(curr_version_str.c_str());
+    start_params[param_count].key = strdup("version");
+    start_params[param_count].value = strdup(curr_version_str.c_str());
     param_count++;
-    start_params[8].key = strdup("ts");
-    start_params[8].value = strdup(ts_str);
+    start_params[param_count].key = strdup("ts");
+    start_params[param_count].value = strdup(ts_str);
     param_count++;
+    if (param_count >= 10) {
+        obs_log(LOG_ERROR, "start_params 数组溢出");
+        for (size_t i = 0; i < param_count; i++) {
+            free(start_params[i].key);
+            free(start_params[i].value);
+        }
+        return false;
+    }
     appsign(start_params, &param_count, app_key, app_sec);
 
     // 拼接 start_data
@@ -689,7 +703,7 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
     headers = build_headers_with_cookie(config->cookies);
     HttpResponse* response = http_post_with_headers("https://api.live.bilibili.com/room/v1/Room/startLive",
                                                    start_data.c_str(), headers.data());
-    free_headers(headers);
+    free_headers(headers); // 修复：正确调用 free_headers
     if (!response || response->status != 200) {
         obs_log(LOG_ERROR, "获取推流码失败，状态码: %ld, URL: %s",
                 response ? response->status : 0, "https://api.live.bilibili.com/room/v1/Room/startLive");
@@ -707,7 +721,7 @@ bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** r
         }
         return false;
     }
-	obs_log(LOG_DEBUG, "start_response data: %s", response->data ? response->data : "无数据");
+    obs_log(LOG_DEBUG, "start_response data: %s", response->data ? response->data : "无数据");
     err.clear();
     json = json11::Json::parse(response->data, err);
     if (!err.empty()) {
@@ -747,6 +761,7 @@ bool bili_stop_live(BiliConfig* config) {
 
     auto headers = build_headers_with_cookie(config->cookies);
     HttpResponse* response = http_post_with_headers("https://api.live.bilibili.com/room/v1/Room/stopLive", stop_data, headers.data());
+	free_headers(headers);
     if (!response || response->status != 200) {
         obs_log(LOG_ERROR, "停止直播失败，状态码: %ld", response ? response->status : 0);
         http_response_free(response);
@@ -781,6 +796,7 @@ bool bili_update_room_info(BiliConfig* config, int area_id) {
 
     auto headers = build_headers_with_cookie(config->cookies);
     HttpResponse* response = http_post_with_headers("https://api.live.bilibili.com/room/v1/Room/update", id_data, headers.data());
+	free_headers(headers);
     if (!response || response->status != 200) {
         obs_log(LOG_ERROR, "更新直播间信息失败，状态码: %ld", response ? response->status : 0);
         http_response_free(response);

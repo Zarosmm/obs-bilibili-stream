@@ -25,6 +25,8 @@ extern "C" {
 	bool bili_start_live(BiliConfig* config, int area_id, char** rtmp_addr, char** rtmp_code);
 	bool bili_stop_live(BiliConfig* config);
 	bool bili_update_room_info(BiliConfig* config, int area_id);
+	std::vector<const char*> build_headers_with_cookie(const char* cookies);
+	void free_headers(std::vector<const char*>& headers);
 
 #ifdef __cplusplus
 }
