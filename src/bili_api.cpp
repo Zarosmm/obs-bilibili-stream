@@ -368,7 +368,7 @@ bool bili_get_qrcode(const char* cookies, char** qrcode_data, char** qrcode_key)
 }
 
 // 检查二维码登录状态
-bool bili_qr_login(char** qrcode_key, const char* cookies) {
+bool bili_qr_login(char** qrcode_key, char** cookies){
     char qr_login_url[2048];
     snprintf(qr_login_url, sizeof(qr_login_url), "https://passport.bilibili.com/x/passport-login/web/qrcode/poll?qrcode_key=%s", *qrcode_key);
 
@@ -401,7 +401,7 @@ bool bili_qr_login(char** qrcode_key, const char* cookies) {
         http_response_free(response);
         return false;
     }
-    cookies = response->cookies;
+	*cookies = strdup(response->cookies);
     http_response_free(response);
     obs_log(LOG_INFO, "二维码登录成功");
     return true;

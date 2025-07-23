@@ -153,6 +153,7 @@ public slots:
                 obs_log(LOG_INFO, "扫码登录菜单项被点击");
 		char* qrcode_data = nullptr;
 		char* qrcode_key = nullptr;
+        	char* cookies = nullptr;
 		if (!bili_get_qrcode(config.cookies, &qrcode_data, &qrcode_key)) {
                         obs_log(LOG_ERROR, "获取二维码失败");
                         return;
@@ -180,7 +181,8 @@ public slots:
 
 		QTimer* timer = new QTimer(qrDialog);
 		QObject::connect(timer, &QTimer::timeout, [this, qrDialog, timer, &qrcode_key]() mutable {
-		        if (bili_qr_login(&qrcode_key, config.cookies)) {
+		        if (bili_qr_login(&qrcode_key, &cookies)) {
+		        	config.cookies = cookies;
 		        	obs_log(LOG_INFO, "%s", config.cookies);
 		                obs_log(LOG_INFO, "二维码登录成功，检查登录状态");
 		                if (bili_check_login_status(config.cookies)) {
@@ -218,7 +220,7 @@ public slots:
         	obs_set_private_data(settings);
         	obs_data_release(settings);
         	obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
-
+		free(cookies);
 		qrDialog->exec();
 	}
 
