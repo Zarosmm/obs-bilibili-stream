@@ -130,7 +130,6 @@ public slots:
 				obs_log(LOG_WARNING, "无法通过 cookies 获取 room_id 和 csrf_token，保留现有值");
                         }
 
-                        setConfig(config);
                         loginDialog->accept();
                 });
 
@@ -145,7 +144,7 @@ public slots:
                 obs_log(LOG_INFO, "扫码登录菜单项被点击");
 		char* qrcode_data = nullptr;
 		char* qrcode_key = nullptr;
-		if (!bili_get_qrcode(getConfig().cookies, &qrcode_data, &qrcode_key)) {
+		if (!bili_get_qrcode(config.cookies, &qrcode_data, &qrcode_key)) {
                         obs_log(LOG_ERROR, "获取二维码失败");
                         return;
 		}
@@ -172,7 +171,7 @@ public slots:
 
 		QTimer* timer = new QTimer(qrDialog);
 		QObject::connect(timer, &QTimer::timeout, [this, qrDialog, timer, &qrcode_key]() mutable {
-		        if (bili_qr_login(getConfig().cookies, &qrcode_key)) {
+		        if (bili_qr_login(&qrcode_key)) {
 		                obs_log(LOG_INFO, "二维码登录成功，检查登录状态以获取 cookies");
 		                char* new_cookies = nullptr;
 		                if (bili_check_login_status(getConfig().cookies, &new_cookies)) {
@@ -318,18 +317,11 @@ bool obs_module_load(void)
                 if (!plugin->config.csrf_token) plugin->config.csrf_token = strdup("your_csrf_token");
                 if (!plugin->config.title) plugin->config.title = strdup("我的直播");
 
-                plugin->setConfig(plugin->config);
-                // Free temporary config strings
-                if (plugin->config.room_id) free(plugin->config.room_id);
-                if (plugin->config.csrf_token) free(plugin->config.csrf_token);
-                if (plugin->config.cookies) free(plugin->config.cookies);
-                if (plugin->config.title) free(plugin->config.title);
-
                 obs_log(LOG_INFO, "从 OBS 数据库加载配置: room_id=%s, csrf_token=%s, cookies=%s, title=%s",
-                        plugin->getConfig().room_id ? plugin->getConfig().room_id : "无",
-                        plugin->getConfig().csrf_token ? plugin->getConfig().csrf_token : "无",
-                        plugin->getConfig().cookies ? plugin->getConfig().cookies : "无",
-                        plugin->getConfig().title ? plugin->getConfig().title : "无");
+                        config.room_id ? config.room_id : "无",
+                        config.csrf_token ? config.csrf_token : "无",
+                        config.cookies ? config.cookies : "无",
+                        config.title ? config.title : "无");
 
                 obs_data_release(settings);
         } else {
