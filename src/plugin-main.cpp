@@ -17,6 +17,7 @@
 #include <QPushButton>
 #include <QComboBox>
 #include <QClipboard>
+#include <QApplication>
 #include <windows.h>
 #include "qrcodegen/qrcodegen.hpp"
 #include "bili_api.hpp"
