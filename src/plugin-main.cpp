@@ -340,12 +340,12 @@ bool obs_module_load(void) {
 			const char* rtmp_code = obs_data_get_string(settings, "rtmp_code");
 			obs_data_release(settings);
 		    obs_log(LOG_INFO, "从数据库加载配置");
-		    obs_log(LOG_INFO, "cookies: %s", cookies);
-		    obs_log(LOG_INFO, "csrf_token: %s", csrf_token);
-		    obs_log(LOG_INFO, "room_id: %s", room_id);
-		    obs_log(LOG_INFO, "title: %s", title);
-			obs_log(LOG_INFO, "rtmp_addr: %s", rtmp_addr);
-			obs_log(LOG_INFO, "rtmp_code: %s", rtmp_code);
+		    obs_log(LOG_INFO, "cookies: %s", cookies && strlen(cookies) ? cookies : "");
+		    obs_log(LOG_INFO, "csrf_token: %s", csrf_token && strlen(csrf_token) ? csrf_token : "");
+		    obs_log(LOG_INFO, "room_id: %s", room_id && strlen(room_id) ? room_id : "");
+		    obs_log(LOG_INFO, "title: %s", title && strlen(title) ? title : "");
+			obs_log(LOG_INFO, "rtmp_addr: %s", rtmp_addr && strlen(rtmp_addr) ? rtmp_addr : "");
+			obs_log(LOG_INFO, "rtmp_code: %s", rtmp_code && strlen(rtmp_code) ? rtmp_code : "");
             plugin->config.room_id = room_id && strlen(room_id) > 0 ? strdup(room_id) : nullptr;
             plugin->config.csrf_token = csrf_token && strlen(csrf_token) > 0 ? strdup(csrf_token) : nullptr;
             plugin->config.cookies = cookies && strlen(cookies) > 0 ? strdup(cookies) : nullptr;
