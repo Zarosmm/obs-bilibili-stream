@@ -28,6 +28,8 @@ public:
         config.title = nullptr;
         config.login_status = false;
         config.streaming = false;
+        config.rtmp_addr = nullptr;
+        config.rtmp_code = nullptr;
     }
 
     ~BilibiliStreamPlugin() {
@@ -35,6 +37,8 @@ public:
         if (config.room_id) free(config.room_id);
         if (config.csrf_token) free(config.csrf_token);
         if (config.title) free(config.title);
+        if (config.rtmp_code) free(config.rtmp_code);
+        if (config.rtmp_addr) free(config.rtmp_addr);
     }
 
     BiliConfig config;
@@ -130,15 +134,16 @@ public slots:
                 obs_log(LOG_WARNING, "登录失败，请检查Cookie是否正确");
             }
 
-            obs_data_t* settings = obs_data_create();
-            obs_data_set_string(settings, "bilibili_room_id", config.room_id ? config.room_id : "");
-            obs_data_set_string(settings, "bilibili_csrf_token", config.csrf_token ? config.csrf_token : "");
-            obs_data_set_string(settings, "bilibili_cookies", config.cookies ? config.cookies : "");
-            obs_data_set_string(settings, "bilibili_title", config.title ? config.title : "");
-            obs_set_private_data(settings);
-            obs_data_release(settings);
-            obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
-
+            char* config_file = nullptr;
+		    config_file = obs_module_file("config.json");
+		    if (config_file) {
+		    	obs_data_t* settings = obs_data_create_from_json_file(config_file);
+		    	obs_data_set_object(settings, "config", &plugin->config);
+                obs_data_save_json(settings, config_file);
+                obs_data_release(settings);
+                obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
+				bfree(config_file);
+		    }
             loginDialog->accept();
         });
 
@@ -206,17 +211,17 @@ public slots:
                         obs_log(LOG_WARNING, "无法通过 cookies 获取 room_id 和 csrf_token，保留现有值");
                     }
 
-                    obs_data_t* settings = obs_data_create();
-                    obs_data_set_string(settings, "bilibili_room_id", config.room_id ? config.room_id : "");
-                    obs_data_set_string(settings, "bilibili_csrf_token", config.csrf_token ? config.csrf_token : "");
-                    obs_data_set_string(settings, "bilibili_cookies", config.cookies ? config.cookies : "");
-                    obs_data_set_string(settings, "bilibili_title", config.title ? config.title : "");
-                    obs_data_set_bool(settings, "bilibili_login_status", config.login_status);
-                    obs_data_set_bool(settings, "bilibili_streaming", config.streaming);
-                    obs_set_private_data(settings);
-                    obs_data_release(settings);
-                    obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
-                     qrDialog->accept();
+                    char* config_file = nullptr;
+		            config_file = obs_module_file("config.json");
+		            if (config_file) {
+		            	obs_data_t* settings = obs_data_create_from_json_file(config_file);
+		            	obs_data_set_object(settings, "config", &plugin->config);
+                        obs_data_save_json(settings, config_file);
+                        obs_data_release(settings);
+                        obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
+                        bfree(config_file);
+		            }
+                    qrDialog->accept();
                 } else {
                     obs_log(LOG_WARNING, "登录状态检查失败");
                     config.login_status = false;
@@ -254,46 +259,30 @@ public slots:
                 streamAction->setText("开始直播");
                 config.streaming = false;
                 obs_log(LOG_INFO, "直播已停止");
-
-                obs_data_t* settings = obs_data_create();
-                obs_data_set_string(settings, "bilibili_room_id", config.room_id ? config.room_id : "");
-                obs_data_set_string(settings, "bilibili_csrf_token", config.csrf_token ? config.csrf_token : "");
-                obs_data_set_string(settings, "bilibili_cookies", config.cookies ? config.cookies : "");
-                obs_data_set_string(settings, "bilibili_title", config.title ? config.title : "");
-                obs_data_set_bool(settings, "bilibili_login_status", config.login_status);
-                obs_data_set_bool(settings, "bilibili_streaming", config.streaming);
-                obs_set_private_data(settings);
-                obs_data_release(settings);
-                obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
             }
         } else {
             char* rtmp_addr = nullptr;
             char* rtmp_code = nullptr;
             if (bili_start_live(&config, 624, &rtmp_addr, &rtmp_code)) {
                 obs_log(LOG_INFO, "直播已启动，RTMP 地址: %s, 推流码: %s", rtmp_addr, rtmp_code);
-                obs_data_t* settings = obs_data_create();
-                obs_data_set_string(settings, "server", rtmp_addr);
-                obs_data_set_string(settings, "key", rtmp_code);
-                obs_output_t* output = obs_output_create("rtmp_output", "bilibili_stream", settings, nullptr);
-                obs_output_start(output);
-                obs_data_release(settings);
                 streamAction->setText("停止直播");
                 config.streaming = true;
-
-                settings = obs_data_create();
-                obs_data_set_string(settings, "bilibili_room_id", config.room_id ? config.room_id : "");
-                obs_data_set_string(settings, "bilibili_csrf_token", config.csrf_token ? config.csrf_token : "");
-                obs_data_set_string(settings, "bilibili_cookies", config.cookies ? config.cookies : "");
-                obs_data_set_string(settings, "bilibili_title", config.title ? config.title : "");
-                obs_data_set_bool(settings, "bilibili_login_status", config.login_status);
-                obs_data_set_bool(settings, "bilibili_streaming", config.streaming);
-                obs_set_private_data(settings);
-                obs_data_release(settings);
-                obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
+                config.rtmp_addr = rtmp_addr;
+                config.rtmp_code = rtmp_code;
             }
             free(rtmp_addr);
             free(rtmp_code);
         }
+		char* config_file = nullptr;
+		config_file = obs_module_file("config.json");
+		if (config_file) {
+			obs_data_t* settings = obs_data_create_from_json_file(config_file);
+			obs_data_set_object(settings, "config", &plugin->config);
+            obs_data_save_json(settings, config_file);
+            obs_data_release(settings);
+            obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
+            bfree(config_file);
+		}
     }
 
     void onUpdateRoomInfoTriggered() {
@@ -332,6 +321,8 @@ bool obs_module_load(void) {
             const char* csrf_token = obs_data_get_string(settings, "csrf_token");
             const char* cookies = obs_data_get_string(settings, "cookies");
             const char* title = obs_data_get_string(settings, "title");
+			const char* rtmp_addr = obs_data_get_string(settings, "rtmp_addr");
+			const char* rtmp_code = obs_data_get_string(settings, "rtmp_code");
 			obs_data_release(config_data);
 			obs_data_release(settings);
 		    obs_log(LOG_INFO, "从数据库加载配置");
@@ -339,11 +330,14 @@ bool obs_module_load(void) {
 		    obs_log(LOG_INFO, "csrf_token: %s", csrf_token);
 		    obs_log(LOG_INFO, "room_id: %s", room_id);
 		    obs_log(LOG_INFO, "title: %s", title);
-
+			obs_log(LOG_INFO, "rtmp_addr: %s", rtmp_addr);
+			obs_log(LOG_INFO, "rtmp_code: %s", rtmp_code);
             plugin->config.room_id = room_id && strlen(room_id) > 0 ? strdup(room_id) : nullptr;
             plugin->config.csrf_token = csrf_token && strlen(csrf_token) > 0 ? strdup(csrf_token) : nullptr;
             plugin->config.cookies = cookies && strlen(cookies) > 0 ? strdup(cookies) : nullptr;
             plugin->config.title = title && strlen(title) > 0 ? strdup(title) : nullptr;
+			plugin->config.rtmp_addr = rtmp_addr && strlen(rtmp_addr) > 0 ? strdup(rtmp_addr) : nullptr;
+			plugin->config.rtmp_code = rtmp_code && strlen(rtmp_code) > 0 ? strdup(rtmp_code) : nullptr;
 		} else {
             obs_log(LOG_WARNING, "无法从 OBS 数据库加载配置，使用默认配置");
         }
@@ -369,14 +363,13 @@ bool obs_module_load(void) {
             if (!plugin->config.room_id) plugin->config.room_id = strdup("12345");
             if (!plugin->config.csrf_token) plugin->config.csrf_token = strdup("your_csrf_token");
             if (!plugin->config.title) plugin->config.title = strdup("我的直播");
-
-            obs_log(LOG_INFO, "当前配置: room_id=%s, csrf_token=%s, cookies=%s, title=%s, login_status=%d, streaming=%d",
-                    plugin->config.room_id ? plugin->config.room_id : "无",
-                    plugin->config.csrf_token ? plugin->config.csrf_token : "无",
-                    plugin->config.cookies ? plugin->config.cookies : "无",
-                    plugin->config.title ? plugin->config.title : "无",
-                    plugin->config.login_status,
-                    plugin->config.streaming);
+			obs_log(LOG_INFO, "当前配置:)
+			obs_log(LOG_INFO, "cookies: %s", plugin->config.cookies ? plugin->config.cookies "无");
+		    obs_log(LOG_INFO, "csrf_token: %s", plugin->config.csrf_token ? plugin->config.csrf_token "无");
+		    obs_log(LOG_INFO, "room_id: %s", plugin->config.room_id ? plugin->config.room_id "无");
+		    obs_log(LOG_INFO, "title: %s", plugin->config.title ? plugin->config.title "无");
+			obs_log(LOG_INFO, "rtmp_addr: %s", plugin->config.rtmp_addr ? plugin->config.rtmp_addr "无");
+			obs_log(LOG_INFO, "rtmp_code: %s", plugin->config.rtmp_code ? plugin->config.rtmp_code "无");
 
 	}
 	bfree(config_file);

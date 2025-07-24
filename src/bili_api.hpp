@@ -10,6 +10,8 @@ typedef struct {
 	char* title;
 	bool login_status;
 	bool streaming;
+	char* rtmp_addr;
+	char* rtmp_code;
 } BiliConfig;
 
 #ifdef __cplusplus

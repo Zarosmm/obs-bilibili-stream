@@ -1,3 +1,10 @@
 {
-
+  "config": {
+    "title": "",
+    "room_id": 624,
+    "csrf_token": "",
+    "cookies": "",
+    "rtmp_addr": "",
+    "rtmp_code": ""
+  }
 }
