@@ -371,9 +371,8 @@ bool obs_module_load(void) {
 		    obs_log(LOG_INFO, "title: %s", plugin->config.title ? plugin->config.title : "无");
 			obs_log(LOG_INFO, "rtmp_addr: %s", plugin->config.rtmp_addr ? plugin->config.rtmp_addr : "无");
 			obs_log(LOG_INFO, "rtmp_code: %s", plugin->config.rtmp_code ? plugin->config.rtmp_code : "无");
-
+		bfree(config_file);
 	}
-	bfree(config_file);
 
     auto menuBar = main_window->menuBar();
     if (!menuBar) {
