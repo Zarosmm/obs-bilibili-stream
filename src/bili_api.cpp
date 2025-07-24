@@ -718,7 +718,6 @@ bool bili_start_live(BiliConfig* config, char** rtmp_addr, char** rtmp_code) {
     *rtmp_addr = strdup(addr.c_str());
     *rtmp_code = strdup(code.c_str());
     http_response_free(response);
-    obs_log(LOG_INFO, "直播已开启！RTMP 地址: %s, 推流码: %s", *rtmp_addr, *rtmp_code);
     return true;
 }
 
@@ -753,7 +752,6 @@ bool bili_stop_live(BiliConfig* config) {
     }
 
     http_response_free(response);
-    obs_log(LOG_INFO, "直播已停止！");
     return true;
 }
 

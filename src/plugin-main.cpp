@@ -313,7 +313,6 @@ public slots:
     }
 
     void onUpdateRoomInfoTriggered() {
-        obs_log(LOG_INFO, "更新直播间信息菜单项被点击");
 
         // 创建对话框
         QDialog* dialog = new QDialog((QWidget*)obs_frontend_get_main_window());
@@ -384,7 +383,6 @@ public slots:
         // 如果 partition.json 为空，使用默认分区
         if (parts.empty()) {
             parts.push_back({2, "网游", nullptr});
-            obs_log(LOG_WARNING, "partition.json 为空，使用默认分区: 网游");
         }
 
         // 填充分区下拉框并设置默认值
@@ -440,7 +438,6 @@ public slots:
                 if (bili_update_room_info(&config, new_title.toUtf8().constData())){
 					if (config.title) free(config.title);
                     config.title = strdup(new_title.toUtf8().constData());
-                    obs_log(LOG_INFO, "直播间标题已更新: %s", config.title ? config.title : "无");
 				    updateConfig();
 					QDialog* resultDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
                     resultDialog->setWindowTitle("消息");
@@ -459,7 +456,6 @@ public slots:
 
                     resultDialog->exec();
 				} else {
-                    obs_log(LOG_ERROR, "更新直播间标题失败");
 					QDialog* resultDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
                     resultDialog->setWindowTitle("消息");
                     QVBoxLayout* layout = new QVBoxLayout(resultDialog);
@@ -484,8 +480,6 @@ public slots:
         QObject::connect(confirmButton2, &QPushButton::clicked, [=]() {
 			config.part_id = partCombo->currentData().toInt();
            	config.area_id = areaCombo->currentData().toInt();
-			obs_log(LOG_INFO, "直播间分区已更新: %d, %d", config.part_id, config.area_id);
-			obs_log(LOG_INFO, "%d", areaCombo->currentData());
 			updateConfig();
 			QDialog* resultDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
             resultDialog->setWindowTitle("消息");
@@ -521,23 +515,19 @@ static BilibiliStreamPlugin* plugin = nullptr;
 
 bool obs_module_load(void) {
     bili_api_init();
-    obs_log(LOG_DEBUG, "bili_api_init completed");
 
     auto main_window = (QMainWindow*)obs_frontend_get_main_window();
     if (!main_window) {
-        obs_log(LOG_ERROR, "无法获取 OBS 主窗口");
         return false;
     }
 
     plugin = new BilibiliStreamPlugin(main_window);
     if (!plugin) {
-        obs_log(LOG_ERROR, "无法创建 BilibiliStreamPlugin 对象");
         return false;
     }
 	char* config_file = nullptr;
 	config_file = obs_module_file("config.json"	);
 	if (config_file) {
-		obs_log(LOG_INFO, "配置文件路径: %s", config_file);
 		obs_data_t* settings = obs_data_create_from_json_file(config_file);
         if (settings) {
             const char* room_id = obs_data_get_string(settings, "room_id");
@@ -566,14 +556,11 @@ bool obs_module_load(void) {
             	plugin->config.login_status = true;
             	char* new_room_id = nullptr;
             	char* new_csrf_token = nullptr;
-				obs_log(LOG_INFO, "获取csrf前 cookies : %s", plugin->config.cookies);
             	if (bili_get_room_id_and_csrf(plugin->config.cookies, &new_room_id, &new_csrf_token)) {
-					obs_log(LOG_INFO, "获取csrf后 cookies : %s", plugin->config.cookies);
                 	if (plugin->config.room_id) free(plugin->config.room_id);
                 	if (plugin->config.csrf_token) free(plugin->config.csrf_token);
                 	plugin->config.room_id = new_room_id;
                 	plugin->config.csrf_token = new_csrf_token;
-                	obs_log(LOG_INFO, "更新 room_id: %s, csrf_token: %s",
                         	plugin->config.room_id ? plugin->config.room_id : "无",
                         	plugin->config.csrf_token ? plugin->config.csrf_token : "无");
             		} else {

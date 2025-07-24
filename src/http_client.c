@@ -48,7 +48,6 @@ static size_t header_callback(char* buffer, size_t size, size_t nitems, void* us
             free(new_cookie);
             return realsize;
         }
-        obs_log(LOG_INFO, "提取的 cookie: %s", new_cookie);
         // 追加到 response->cookies
         if (response->cookies) {
             char* old_cookies = response->cookies;
@@ -118,8 +117,6 @@ HttpResponse* http_get_with_headers(const char* url, const char** headers) {
     	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response->status);
     	curl_slist_free_all(header_list);
     	curl_easy_cleanup(curl);
-	obs_log(LOG_INFO, "response data : %s", response->data ? response->data : "无数据");
-	obs_log(LOG_INFO, "response cookies : %s", response->cookies ? response->cookies : "无 cookies");
     return response;
 }
 
@@ -165,8 +162,6 @@ HttpResponse* http_post_with_headers(const char* url, const char* data, const ch
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response->status);
     curl_slist_free_all(header_list);
     curl_easy_cleanup(curl);
-	obs_log(LOG_INFO, "response data : %s", response->data ? response->data : "无数据");
-	obs_log(LOG_INFO, "response cookies : %s", response->cookies ? response->cookies : "无 cookies");
     return response;
 }
 
