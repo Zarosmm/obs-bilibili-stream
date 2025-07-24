@@ -315,13 +315,14 @@ public slots:
                     layout->addWidget(label);
 			    	QPushButton* copy = new QPushButton("复制", resultDialog);
                     QPushButton* b = new QPushButton("确认", resultDialog);
+					layout->addWidget(copy);
                     layout->addWidget(b);
                     QObject::connect(resultDialog, &QDialog::finished, [=]() {
                         resultDialog->deleteLater();
                     });
 			    	QObject::connect(copy, &QPushButton::clicked, [=]() {
                         QClipboard* clipboard = QApplication::clipboard();
-                        clipboard->setText(QString("RTMP 地址: %1\n推流码: %2").arg(rtmp_addr, rtmp_code));
+                        clipboard->setText(QString("推流地址: %1\n推流码: %2").arg(rtmp_addr, rtmp_code));
                     });
 			    	QObject::connect(b, &QPushButton::clicked, [=]() {
                         resultDialog->accept();
