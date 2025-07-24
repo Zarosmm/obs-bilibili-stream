@@ -364,13 +364,13 @@ bool obs_module_load(void) {
             if (!plugin->config.room_id) plugin->config.room_id = strdup("12345");
             if (!plugin->config.csrf_token) plugin->config.csrf_token = strdup("your_csrf_token");
             if (!plugin->config.title) plugin->config.title = strdup("我的直播");
-			obs_log(LOG_INFO, "当前配置:")
-			obs_log(LOG_INFO, "cookies: %s", plugin->config.cookies ? plugin->config.cookies "无");
-		    obs_log(LOG_INFO, "csrf_token: %s", plugin->config.csrf_token ? plugin->config.csrf_token "无");
-		    obs_log(LOG_INFO, "room_id: %s", plugin->config.room_id ? plugin->config.room_id "无");
-		    obs_log(LOG_INFO, "title: %s", plugin->config.title ? plugin->config.title "无");
-			obs_log(LOG_INFO, "rtmp_addr: %s", plugin->config.rtmp_addr ? plugin->config.rtmp_addr "无");
-			obs_log(LOG_INFO, "rtmp_code: %s", plugin->config.rtmp_code ? plugin->config.rtmp_code "无");
+			obs_log(LOG_INFO, "当前配置:");
+			obs_log(LOG_INFO, "cookies: %s", plugin->config.cookies ? plugin->config.cookies : "无");
+		    obs_log(LOG_INFO, "csrf_token: %s", plugin->config.csrf_token ? plugin->config.csrf_token : "无");
+		    obs_log(LOG_INFO, "room_id: %s", plugin->config.room_id ? plugin->config.room_id : "无");
+		    obs_log(LOG_INFO, "title: %s", plugin->config.title ? plugin->config.title : "无");
+			obs_log(LOG_INFO, "rtmp_addr: %s", plugin->config.rtmp_addr ? plugin->config.rtmp_addr : "无");
+			obs_log(LOG_INFO, "rtmp_code: %s", plugin->config.rtmp_code ? plugin->config.rtmp_code : "无");
 
 	}
 	bfree(config_file);
