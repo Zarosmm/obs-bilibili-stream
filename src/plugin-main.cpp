@@ -344,8 +344,6 @@ bool obs_module_load(void) {
         	if (plugin->config.cookies && strlen(plugin->config.cookies) > 0) {
             	if (bili_check_login_status(plugin->config.cookies)) {
                 	plugin->config.login_status = true;
-                	onLoginStatusTriggered();
-
                 	char* new_room_id = nullptr;
                 	char* new_csrf_token = nullptr;
                 	if (bili_get_room_id_and_csrf(plugin->config.cookies, &new_room_id, &new_csrf_token)) {
