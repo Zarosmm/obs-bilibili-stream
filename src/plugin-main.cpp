@@ -327,10 +327,12 @@ bool obs_module_load(void) {
 		obs_log(LOG_INFO, "配置文件路径: %s", config_file);
 		obs_data_t* settings = obs_data_create_from_json_file(config_file);
         if (settings) {
-            const char* room_id = obs_data_get_string(settings, "bilibili_room_id");
-            const char* csrf_token = obs_data_get_string(settings, "bilibili_csrf_token");
-            const char* cookies = obs_data_get_string(settings, "bilibili_cookies");
-            const char* title = obs_data_get_string(settings, "bilibili_title");
+            obs_data_t* config_data = obs_data_get_object(settings, "config");
+            const char* room_id = obs_data_get_string(settings, "room_id");
+            const char* csrf_token = obs_data_get_string(settings, "csrf_token");
+            const char* cookies = obs_data_get_string(settings, "cookies");
+            const char* title = obs_data_get_string(settings, "title");
+			obs_data_release(config_data);
 			obs_data_release(settings);
 		    obs_log(LOG_INFO, "从数据库加载配置");
 		    obs_log(LOG_INFO, "cookies: %s", cookies);
@@ -417,13 +419,10 @@ bool obs_module_load(void) {
 void obs_module_unload(void) {
     if (plugin) {
 		char* config_file = nullptr;
-		config_file = obs_module_file("config.json"	);
+		config_file = obs_module_file("config.json");
 		if (config_file) {
 			obs_data_t* settings = obs_data_create_from_json_file(config_file);
-            obs_data_set_string(settings, "bilibili_room_id", plugin->config.room_id ? plugin->config.room_id : "");
-            obs_data_set_string(settings, "bilibili_csrf_token", plugin->config.csrf_token ? plugin->config.csrf_token : "");
-            obs_data_set_string(settings, "bilibili_cookies", plugin->config.cookies ? plugin->config.cookies : "");
-            obs_data_set_string(settings, "bilibili_title", plugin->config.title ? plugin->config.title : "");
+			obs_data_set_object(settings, "config", &plugin->config);
             obs_data_save_json(settings, config_file);
             obs_data_release(settings);
             obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
