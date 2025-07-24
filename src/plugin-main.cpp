@@ -561,10 +561,8 @@ bool obs_module_load(void) {
                 	if (plugin->config.csrf_token) free(plugin->config.csrf_token);
                 	plugin->config.room_id = new_room_id;
                 	plugin->config.csrf_token = new_csrf_token;
-                        	plugin->config.room_id ? plugin->config.room_id : "无",
-                        	plugin->config.csrf_token ? plugin->config.csrf_token : "无");
-            		} else {
-                		obs_log(LOG_WARNING, "无法通过 cookies 获取 room_id 和 csrf_token，保留现有值");
+            	} else {
+                	obs_log(LOG_WARNING, "无法通过 cookies 获取 room_id 和 csrf_token，保留现有值");
             	}
         	}
         }
