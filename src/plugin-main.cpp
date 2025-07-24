@@ -380,7 +380,7 @@ public slots:
         }
 
         // 填充分区下拉框并设置默认值
-        int selected_part_index = 0;
+        size_t selected_part_index = 0;
         for (size_t i = 0; i < parts.size(); i++) {
             partCombo->addItem(parts[i].name, parts[i].id);
             if (parts[i].id == config.part_id) {
