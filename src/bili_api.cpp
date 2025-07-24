@@ -758,7 +758,7 @@ bool bili_stop_live(BiliConfig* config) {
 }
 
 // 更新直播间标题
-bool bili_update_room_info(BiliConfig* config, char* title) {
+bool bili_update_room_title(BiliConfig* config, const char* title) {
 	// 设置直播标题
     std::string title_data = "room_id=" + std::string(config->room_id) +
                             "&platform=pc_link&title=" + std::string(title) +
