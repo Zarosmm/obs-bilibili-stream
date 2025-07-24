@@ -1,4 +1,4 @@
-#include <obs.h>
+#include <obs-data.h>
 #include <obs-module.h>
 #include <plugin-support.h>
 #include <obs-frontend-api.h>
