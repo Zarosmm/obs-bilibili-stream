@@ -342,35 +342,35 @@ bool obs_module_load(void) {
 		} else {
             obs_log(LOG_WARNING, "无法从 OBS 数据库加载配置，使用默认配置");
         }
-        	if (plugin->config.cookies && strlen(plugin->config.cookies) > 0) {
-            	if (bili_check_login_status(plugin->config.cookies)) {
-                	plugin->config.login_status = true;
-                	char* new_room_id = nullptr;
-                	char* new_csrf_token = nullptr;
-                	if (bili_get_room_id_and_csrf(plugin->config.cookies, &new_room_id, &new_csrf_token)) {
-                    	if (plugin->config.room_id) free(plugin->config.room_id);
-                    	if (plugin->config.csrf_token) free(plugin->config.csrf_token);
-                    	plugin->config.room_id = new_room_id;
-                    	plugin->config.csrf_token = new_csrf_token;
-                    	obs_log(LOG_INFO, "更新 room_id: %s, csrf_token: %s",
-                            	plugin->config.room_id ? plugin->config.room_id : "无",
-                            	plugin->config.csrf_token ? plugin->config.csrf_token : "无");
-                		} else {
-                    		obs_log(LOG_WARNING, "无法通过 cookies 获取 room_id 和 csrf_token，保留现有值");
-                	}
+        if (plugin->config.cookies && strlen(plugin->config.cookies) > 0) {
+        	if (bili_check_login_status(plugin->config.cookies)) {
+            	plugin->config.login_status = true;
+            	char* new_room_id = nullptr;
+            	char* new_csrf_token = nullptr;
+            	if (bili_get_room_id_and_csrf(plugin->config.cookies, &new_room_id, &new_csrf_token)) {
+                	if (plugin->config.room_id) free(plugin->config.room_id);
+                	if (plugin->config.csrf_token) free(plugin->config.csrf_token);
+                	plugin->config.room_id = new_room_id;
+                	plugin->config.csrf_token = new_csrf_token;
+                	obs_log(LOG_INFO, "更新 room_id: %s, csrf_token: %s",
+                        	plugin->config.room_id ? plugin->config.room_id : "无",
+                        	plugin->config.csrf_token ? plugin->config.csrf_token : "无");
+            		} else {
+                		obs_log(LOG_WARNING, "无法通过 cookies 获取 room_id 和 csrf_token，保留现有值");
             	}
         	}
+        }
 
-            if (!plugin->config.room_id) plugin->config.room_id = strdup("12345");
-            if (!plugin->config.csrf_token) plugin->config.csrf_token = strdup("your_csrf_token");
-            if (!plugin->config.title) plugin->config.title = strdup("我的直播");
-			obs_log(LOG_INFO, "当前配置:");
-			obs_log(LOG_INFO, "cookies: %s", plugin->config.cookies ? plugin->config.cookies : "无");
-		    obs_log(LOG_INFO, "csrf_token: %s", plugin->config.csrf_token ? plugin->config.csrf_token : "无");
-		    obs_log(LOG_INFO, "room_id: %s", plugin->config.room_id ? plugin->config.room_id : "无");
-		    obs_log(LOG_INFO, "title: %s", plugin->config.title ? plugin->config.title : "无");
-			obs_log(LOG_INFO, "rtmp_addr: %s", plugin->config.rtmp_addr ? plugin->config.rtmp_addr : "无");
-			obs_log(LOG_INFO, "rtmp_code: %s", plugin->config.rtmp_code ? plugin->config.rtmp_code : "无");
+        if (!plugin->config.room_id) plugin->config.room_id = strdup("12345");
+        if (!plugin->config.csrf_token) plugin->config.csrf_token = strdup("your_csrf_token");
+        if (!plugin->config.title) plugin->config.title = strdup("我的直播");
+		obs_log(LOG_INFO, "当前配置:");
+		obs_log(LOG_INFO, "cookies: %s", plugin->config.cookies ? plugin->config.cookies : "无");
+		obs_log(LOG_INFO, "csrf_token: %s", plugin->config.csrf_token ? plugin->config.csrf_token : "无");
+		obs_log(LOG_INFO, "room_id: %s", plugin->config.room_id ? plugin->config.room_id : "无");
+		obs_log(LOG_INFO, "title: %s", plugin->config.title ? plugin->config.title : "无");
+		obs_log(LOG_INFO, "rtmp_addr: %s", plugin->config.rtmp_addr ? plugin->config.rtmp_addr : "无");
+		obs_log(LOG_INFO, "rtmp_code: %s", plugin->config.rtmp_code ? plugin->config.rtmp_code : "无");
 		bfree(config_file);
 	}
 
