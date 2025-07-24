@@ -139,7 +139,7 @@ public slots:
 		    config_file = obs_module_file("config.json");
 		    if (config_file) {
 		    	obs_data_t* settings = obs_data_create_from_json_file(config_file);
-		    	obs_data_set_object(settings, "config", config);
+		    	obs_data_set_obj(settings, "config", config);
                 obs_data_save_json(settings, config_file);
                 obs_data_release(settings);
                 obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
@@ -216,7 +216,7 @@ public slots:
 		            config_file = obs_module_file("config.json");
 		            if (config_file) {
 		            	obs_data_t* settings = obs_data_create_from_json_file(config_file);
-		            	obs_data_set_object(settings, "config", config);
+		            	obs_data_set_obj(settings, "config", config);
                         obs_data_save_json(settings, config_file);
                         obs_data_release(settings);
                         obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
@@ -278,7 +278,7 @@ public slots:
 		config_file = obs_module_file("config.json");
 		if (config_file) {
 			obs_data_t* settings = obs_data_create_from_json_file(config_file);
-			obs_data_set_object(settings, "config", config);
+			obs_data_set_obj(settings, "config", config);
             obs_data_save_json(settings, config_file);
             obs_data_release(settings);
             obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
@@ -317,7 +317,7 @@ bool obs_module_load(void) {
 		obs_log(LOG_INFO, "配置文件路径: %s", config_file);
 		obs_data_t* settings = obs_data_create_from_json_file(config_file);
         if (settings) {
-            obs_data_t* config_data = obs_data_get_object(settings, "config");
+            obs_data_t* config_data = obs_data_get_obj(settings, "config");
             const char* room_id = obs_data_get_string(settings, "room_id");
             const char* csrf_token = obs_data_get_string(settings, "csrf_token");
             const char* cookies = obs_data_get_string(settings, "cookies");
@@ -416,7 +416,7 @@ void obs_module_unload(void) {
 		config_file = obs_module_file("config.json");
 		if (config_file) {
 			obs_data_t* settings = obs_data_create_from_json_file(config_file);
-			obs_data_set_object(settings, "config", &plugin->config);
+			obs_data_set_obj(settings, "config", &plugin->config);
             obs_data_save_json(settings, config_file);
             obs_data_release(settings);
             obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
