@@ -401,11 +401,11 @@ public slots:
                 int selected_area_index = 0;
                 for (size_t i = 0; i < count; i++) {
                     obs_data_t* area = obs_data_array_item(areas, i);
-                    QString id = Qstring::fromUtf8(obs_data_get_int(area, "id"));
+                    QString id = QString::fromUtf8(obs_data_get_int(area, "id"));
                     QString name = QString::fromUtf8(obs_data_get_string(area, "name"));
 					int id_int = id.toInt();
                     areaCombo->addItem(name, id_int);
-                    if (id == config.area_id) {
+                    if (id_int == config.area_id) {
                         selected_area_index = static_cast<int>(i);
                     }
                     obs_data_release(area);
