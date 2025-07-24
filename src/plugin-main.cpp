@@ -31,8 +31,8 @@ public:
         config.streaming = false;
         config.rtmp_addr = nullptr;
         config.rtmp_code = nullptr;
-		config.part_id = nullptr;
-		config.area_id = nullptr;
+		config.part_id = 2;
+		config.area_id = 86;
     }
 
     ~BilibiliStreamPlugin() {
@@ -42,8 +42,6 @@ public:
         if (config.title) free(config.title);
         if (config.rtmp_code) free(config.rtmp_code);
         if (config.rtmp_addr) free(config.rtmp_addr);
-		if (config.part_id) free(config.part_id);
-		if (config.area_id) free(config.area_id);
     }
 
     BiliConfig config;
@@ -149,7 +147,7 @@ public slots:
                 obs_data_set_string(settings, "title", config.title ? config.title : "");
                 obs_data_set_string(settings, "rtmp_addr", config.rtmp_addr ? config.rtmp_addr : "");
                 obs_data_set_string(settings, "rtmp_code", config.rtmp_code ? config.rtmp_code : "");
-				obs_data_set_int(settings, "pare_id", config.parent_id ? config.parent_id : 2);
+				obs_data_set_int(settings, "part_id", config.part_id ? config.part_id : 2);
 				obs_data_set_int(settings, "area_id", config.area_id ? config.area_id : 86);
                 obs_data_save_json(settings, config_file);
                 obs_data_release(settings);
@@ -233,7 +231,7 @@ public slots:
                         obs_data_set_string(settings, "title", config.title ? config.title : "");
                         obs_data_set_string(settings, "rtmp_addr", config.rtmp_addr ? config.rtmp_addr : "");
                         obs_data_set_string(settings, "rtmp_code", config.rtmp_code ? config.rtmp_code : "");
-						obs_data_set_int(settings, "pare_id", config.parent_id ? config.parent_id : 2);
+						obs_data_set_int(settings, "part_id", config.part_id ? config.part_id : 2);
 						obs_data_set_int(settings, "area_id", config.area_id ? config.area_id : 86);
                         obs_data_save_json(settings, config_file);
                         obs_data_release(settings);
@@ -302,7 +300,7 @@ public slots:
             obs_data_set_string(settings, "title", config.title ? config.title : "");
             obs_data_set_string(settings, "rtmp_addr", config.rtmp_addr ? config.rtmp_addr : "");
             obs_data_set_string(settings, "rtmp_code", config.rtmp_code ? config.rtmp_code : "");
-			obs_data_set_int(settings, "pare_id", config.parent_id ? config.parent_id : 2);
+			obs_data_set_int(settings, "part_id", config.part_id ? config.part_id : 2);
 			obs_data_set_int(settings, "area_id", config.area_id ? config.area_id : 86);
             obs_data_save_json(settings, config_file);
             obs_data_release(settings);
@@ -361,7 +359,7 @@ bool obs_module_load(void) {
             const char* title = obs_data_get_string(settings, "title");
 			const char* rtmp_addr = obs_data_get_string(settings, "rtmp_addr");
 			const char* rtmp_code = obs_data_get_string(settings, "rtmp_code");
-            const int pare_id = obs_data_get_int(settings, "pare_id");
+            const int part_id = obs_data_get_int(settings, "part_id");
             const int area_id = obs_data_get_int(settings, "area_id");
 			obs_data_release(settings);
 		    obs_log(LOG_INFO, "从数据库加载配置");
@@ -371,7 +369,7 @@ bool obs_module_load(void) {
 		    obs_log(LOG_INFO, "title: %s", title && strlen(title) ? title : "");
 			obs_log(LOG_INFO, "rtmp_addr: %s", rtmp_addr && strlen(rtmp_addr) ? rtmp_addr : "");
 			obs_log(LOG_INFO, "rtmp_code: %s", rtmp_code && strlen(rtmp_code) ? rtmp_code : "");
-			obs_log(LOG_INFO, "pare_id: %d", pare_id);
+			obs_log(LOG_INFO, "part_id: %d", part_id);
 			obs_log(LOG_INFO, "area_id: %d", area_id);
             plugin->config.room_id = room_id && strlen(room_id) > 0 ? strdup(room_id) : nullptr;
             plugin->config.csrf_token = csrf_token && strlen(csrf_token) > 0 ? strdup(csrf_token) : nullptr;
@@ -379,7 +377,7 @@ bool obs_module_load(void) {
             plugin->config.title = title && strlen(title) > 0 ? strdup(title) : nullptr;
 			plugin->config.rtmp_addr = rtmp_addr && strlen(rtmp_addr) > 0 ? strdup(rtmp_addr) : nullptr;
 			plugin->config.rtmp_code = rtmp_code && strlen(rtmp_code) > 0 ? strdup(rtmp_code) : nullptr;
-            plugin->config.parent_id = pare_id;
+            plugin->config.part_id = part_id;
             plugin->config.area_id = area_id;
 
 		} else {
@@ -414,7 +412,7 @@ bool obs_module_load(void) {
 		obs_log(LOG_INFO, "title: %s", plugin->config.title ? plugin->config.title : "无");
 		obs_log(LOG_INFO, "rtmp_addr: %s", plugin->config.rtmp_addr ? plugin->config.rtmp_addr : "无");
 		obs_log(LOG_INFO, "rtmp_code: %s", plugin->config.rtmp_code ? plugin->config.rtmp_code : "无");
-		obs_log(LOG_INFO, "pare_id: %d", plugin->config.parent_id);
+		obs_log(LOG_INFO, "part_id: %d", plugin->config.part_id);
 		obs_log(LOG_INFO, "area_id: %d", plugin->config.area_id);
 		bfree(config_file);
 	}
@@ -467,7 +465,7 @@ void obs_module_unload(void) {
             obs_data_set_string(settings, "title", plugin->config.title ? plugin->config.title : "");
             obs_data_set_string(settings, "rtmp_addr", plugin->config.rtmp_addr ? plugin->config.rtmp_addr : "");
             obs_data_set_string(settings, "rtmp_code", plugin->config.rtmp_code ? plugin->config.rtmp_code : "");
-            obs_data_set_int(settings, "parent_id", plugin->config.parent_id ? plugin->config.parent_id : 2);
+            obs_data_set_int(settings, "part_id", plugin->config.part_id ? plugin->config.part_id : 2);
             obs_data_set_int(settings, "area_id", plugin->config.area_id ? plugin->config.area_id : 86);
             obs_data_save_json(settings, config_file);
             obs_data_release(settings);

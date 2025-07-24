@@ -769,7 +769,7 @@ bool bili_update_room_info(BiliConfig* config) {
         return false;
     }
 
-    headers = build_headers_with_cookie(config->cookies);
+    auto headers = build_headers_with_cookie(config->cookies);
     HttpResponse* title_response = http_post_with_headers("https://api.live.bilibili.com/room/v1/Room/update",
                                                          title_data.c_str(), headers.data());
     free_headers(headers); // 修复：正确调用 free_headers
@@ -780,7 +780,7 @@ bool bili_update_room_info(BiliConfig* config) {
     }
     obs_log(LOG_DEBUG, "title_response data: %s", title_response->data ? title_response->data : "无数据");
     std::string err;
-    json = json11::Json::parse(title_response->data, err);
+    json11::Json json = json11::Json::parse(title_response->data, err);
     http_response_free(title_response);
     if (!err.empty()) {
         obs_log(LOG_ERROR, "JSON 解析失败: %s", err.c_str());
