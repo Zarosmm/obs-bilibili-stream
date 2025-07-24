@@ -352,12 +352,6 @@ bool obs_module_load(void) {
             plugin->config.title = title && strlen(title) > 0 ? strdup(title) : nullptr;
 			plugin->config.rtmp_addr = rtmp_addr && strlen(rtmp_addr) > 0 ? strdup(rtmp_addr) : nullptr;
 			plugin->config.rtmp_code = rtmp_code && strlen(rtmp_code) > 0 ? strdup(rtmp_code) : nullptr;
-            free(room_id);
-			free(csrf_token);
-			free(cookies);
-			free(title);
-			free(rtmp_addr);
-			free(rtmp_code);
 		} else {
             obs_log(LOG_WARNING, "无法从 OBS 数据库加载配置，使用默认配置");
         }
