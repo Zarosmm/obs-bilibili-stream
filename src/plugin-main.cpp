@@ -355,7 +355,7 @@ public slots:
         struct Part {
             int id;
             QString name;
-            obs_data_t* list;
+            obs_data_array_t* list;
         };
         std::vector<Part> parts;
         if (partition_data) {
