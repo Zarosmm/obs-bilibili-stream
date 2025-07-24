@@ -1,5 +1,7 @@
 #include <obs-data.h>
 #include <obs-module.h>
+#include <obs-service.h>
+#include <obs-output.h>
 #include <plugin-support.h>
 #include <obs-frontend-api.h>
 #include <QAction>
@@ -48,6 +50,10 @@ public:
     BiliConfig config;
     QAction* loginStatusAction = nullptr;
     QAction* streamAction = nullptr;
+	obs_data_t* service_settings = nullptr;
+    obs_service_t* service = nullptr;
+	obs_data_t* output_settings = nullptr;
+    obs_output_t* output = nullptr;
 
 private:
     static QPixmap generateQrCodePixmap(const char* qrcode_data) {
@@ -295,7 +301,26 @@ public slots:
                 QVBoxLayout* layout = new QVBoxLayout(resultDialog);
                 QLabel* label = new QLabel("已开始直播", resultDialog);
                 layout->addWidget(label);
-
+				// 启动推流
+                if (!obs_output_start(output)) {
+                    obs_log(LOG_ERROR, "无法启动 RTMP 推流: %s", obs_output_get_last_error(output));
+                    obs_output_release(output);
+                    obs_service_release(service);
+                    free(rtmp_addr);
+                    free(rtmp_code);
+                    obs_data_release(service_settings);
+                    obs_data_release(output_settings);
+                    QDialog* resultDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
+                    resultDialog->setWindowTitle("消息");
+                    QVBoxLayout* layout = new QVBoxLayout(resultDialog);
+                    QLabel* label = new QLabel(QString("推流失败：%1").arg(obs_output_get_last_error(output)), resultDialog);
+                    layout->addWidget(label);
+                    QPushButton* b = new QPushButton("确认", resultDialog);
+                    layout->addWidget(b);
+                    QObject::connect(b, &QPushButton::clicked, [=]() { resultDialog->accept(); });
+                    QObject::connect(resultDialog, &QDialog::finished, [=]() { resultDialog->deleteLater(); });
+                    resultDialog->exec();
+                }
                 QPushButton* b = new QPushButton("确认", resultDialog);
                 layout->addWidget(b);
                 QObject::connect(resultDialog, &QDialog::finished, [=]() {
@@ -572,6 +597,54 @@ bool obs_module_load(void) {
         if (!plugin->config.title) plugin->config.title = strdup("我的直播");
 		bfree(config_file);
 	}
+
+	plugin->service_settings = obs_data_create();
+    obs_data_set_string(plugin->service_settings, "server", plugin->config.rtmp_addr ? plugin->config.rtmp_addr : "");
+    obs_data_set_string(plugin->service_settings, "key", plugin->config.rtmp_code ? plugin->config.rtmp_code : "");
+
+    plugin->service = obs_service_create("rtmp_custom", "bilibili_service", plugin->service_settings, nullptr);
+    if (!service) {
+        obs_log(LOG_ERROR, "无法创建 Bilibili RTMP 服务");
+        free(rtmp_addr);
+        free(rtmp_code);
+        obs_data_release(plugin->service_settings);
+        QDialog* resultDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
+        resultDialog->setWindowTitle("消息");
+        QVBoxLayout* layout = new QVBoxLayout(resultDialog);
+        QLabel* label = new QLabel("无法创建 RTMP 服务", resultDialog);
+        layout->addWidget(label);
+        QPushButton* b = new QPushButton("确认", resultDialog);
+        layout->addWidget(b);
+        QObject::connect(b, &QPushButton::clicked, [=]() { resultDialog->accept(); });
+        QObject::connect(resultDialog, &QDialog::finished, [=]() { resultDialog->deleteLater(); });
+        resultDialog->exec();
+        return;
+    }
+
+	// 创建 RTMP 输出
+    plugin->output_settings = obs_data_create();
+    plugin->output = obs_output_create("rtmp_output", "bilibili_stream", plugin->output_settings, nullptr);
+    if (!output) {
+        obs_log(LOG_ERROR, "无法创建 RTMP 输出");
+        obs_service_release(plugin->service);
+        free(rtmp_addr);
+        free(rtmp_code);
+        obs_data_release(plugin->service_settings);
+        obs_data_release(plugin->output_settings);
+        QDialog* resultDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
+        resultDialog->setWindowTitle("消息");
+        QVBoxLayout* layout = new QVBoxLayout(resultDialog);
+        QLabel* label = new QLabel("无法创建 RTMP 输出", resultDialog);
+        layout->addWidget(label);
+        QPushButton* b = new QPushButton("确认", resultDialog);
+        layout->addWidget(b);
+        QObject::connect(b, &QPushButton::clicked, [=]() { resultDialog->accept(); });
+        QObject::connect(resultDialog, &QDialog::finished, [=]() { resultDialog->deleteLater(); });
+        resultDialog->exec();
+        return;
+    }
+    // 设置服务到输出
+    obs_output_set_service(plugin->output, plugin->service);
 
     auto menuBar = main_window->menuBar();
     if (!menuBar) {
