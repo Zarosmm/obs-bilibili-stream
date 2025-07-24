@@ -138,8 +138,13 @@ public slots:
             char* config_file = nullptr;
 		    config_file = obs_module_file("config.json");
 		    if (config_file) {
-		    	obs_data_t* settings = obs_data_create_from_json_file(config_file);
-		    	obs_data_set_obj(settings, "config", config);
+		    	obs_data_t* settings = obs_data_create();
+                obs_data_set_string(settings, "room_id", config.room_id ? config.room_id : "");
+                obs_data_set_string(settings, "csrf_token", config.csrf_token ? config.csrf_token : "");
+                obs_data_set_string(settings, "cookies", config.cookies ? config.cookies : "");
+                obs_data_set_string(settings, "title", config.title ? config.title : "");
+                obs_data_set_bool(settings, "rtmp_addr", config.rtmp_addr ? config.rtmp_addr : "");
+                obs_data_set_bool(settings, "rtmp_code", config.rtmp_code ? config.rtmp_code : "");
                 obs_data_save_json(settings, config_file);
                 obs_data_release(settings);
                 obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
@@ -215,8 +220,13 @@ public slots:
                     char* config_file = nullptr;
 		            config_file = obs_module_file("config.json");
 		            if (config_file) {
-		            	obs_data_t* settings = obs_data_create_from_json_file(config_file);
-		            	obs_data_set_obj(settings, "config", config);
+		            	obs_data_t* settings = obs_data_create();
+                        obs_data_set_string(settings, "room_id", config.room_id ? config.room_id : "");
+                        obs_data_set_string(settings, "csrf_token", config.csrf_token ? config.csrf_token : "");
+                        obs_data_set_string(settings, "cookies", config.cookies ? config.cookies : "");
+                        obs_data_set_string(settings, "title", config.title ? config.title : "");
+                        obs_data_set_bool(settings, "rtmp_addr", config.rtmp_addr ? config.rtmp_addr : "");
+                        obs_data_set_bool(settings, "rtmp_code", config.rtmp_code ? config.rtmp_code : "");
                         obs_data_save_json(settings, config_file);
                         obs_data_release(settings);
                         obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
@@ -277,8 +287,13 @@ public slots:
 		char* config_file = nullptr;
 		config_file = obs_module_file("config.json");
 		if (config_file) {
-			obs_data_t* settings = obs_data_create_from_json_file(config_file);
-			obs_data_set_obj(settings, "config", config);
+			obs_data_t* settings = obs_data_create();
+            obs_data_set_string(settings, "room_id", config.room_id ? config.room_id : "");
+            obs_data_set_string(settings, "csrf_token", config.csrf_token ? config.csrf_token : "");
+            obs_data_set_string(settings, "cookies", config.cookies ? config.cookies : "");
+            obs_data_set_string(settings, "title", config.title ? config.title : "");
+            obs_data_set_bool(settings, "rtmp_addr", config.rtmp_addr ? config.rtmp_addr : "");
+            obs_data_set_bool(settings, "rtmp_code", config.rtmp_code ? config.rtmp_code : "");
             obs_data_save_json(settings, config_file);
             obs_data_release(settings);
             obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
@@ -317,14 +332,12 @@ bool obs_module_load(void) {
 		obs_log(LOG_INFO, "配置文件路径: %s", config_file);
 		obs_data_t* settings = obs_data_create_from_json_file(config_file);
         if (settings) {
-            obs_data_t* config_data = obs_data_get_obj(settings, "config");
-            const char* room_id = obs_data_get_string(settings, "room_id");
-            const char* csrf_token = obs_data_get_string(settings, "csrf_token");
-            const char* cookies = obs_data_get_string(settings, "cookies");
-            const char* title = obs_data_get_string(settings, "title");
-			const char* rtmp_addr = obs_data_get_string(settings, "rtmp_addr");
-			const char* rtmp_code = obs_data_get_string(settings, "rtmp_code");
-			obs_data_release(config_data);
+            char* room_id = obs_data_get_string(settings, "room_id");
+            char* csrf_token = obs_data_get_string(settings, "csrf_token");
+            char* cookies = obs_data_get_string(settings, "cookies");
+            char* title = obs_data_get_string(settings, "title");
+			char* rtmp_addr = obs_data_get_string(settings, "rtmp_addr");
+			char* rtmp_code = obs_data_get_string(settings, "rtmp_code");
 			obs_data_release(settings);
 		    obs_log(LOG_INFO, "从数据库加载配置");
 		    obs_log(LOG_INFO, "cookies: %s", cookies);
@@ -339,6 +352,12 @@ bool obs_module_load(void) {
             plugin->config.title = title && strlen(title) > 0 ? strdup(title) : nullptr;
 			plugin->config.rtmp_addr = rtmp_addr && strlen(rtmp_addr) > 0 ? strdup(rtmp_addr) : nullptr;
 			plugin->config.rtmp_code = rtmp_code && strlen(rtmp_code) > 0 ? strdup(rtmp_code) : nullptr;
+            free(room_id);
+			free(csrf_token);
+			free(cookies);
+			free(title);
+			free(rtmp_addr);
+			free(rtmp_code);
 		} else {
             obs_log(LOG_WARNING, "无法从 OBS 数据库加载配置，使用默认配置");
         }
@@ -414,15 +433,20 @@ void obs_module_unload(void) {
 		char* config_file = nullptr;
 		config_file = obs_module_file("config.json");
 		if (config_file) {
-			obs_data_t* settings = obs_data_create_from_json_file(config_file);
-			obs_data_set_obj(settings, "config", &plugin->config);
+			obs_data_t* settings = obs_data_create();
+            obs_data_set_string(settings, "room_id", plugin->config.room_id ? plugin->config.room_id : "");
+            obs_data_set_string(settings, "csrf_token", plugin->config.csrf_token ? plugin->config.csrf_token : "");
+            obs_data_set_string(settings, "cookies", plugin->config.cookies ? plugin->config.cookies : "");
+            obs_data_set_string(settings, "title", plugin->config.title ? plugin->config.title : "");
+            obs_data_set_bool(settings, "rtmp_addr", plugin->config.rtmp_addr ? plugin->config.rtmp_addr : "");
+            obs_data_set_bool(settings, "rtmp_code", plugin->config.rtmp_code ? plugin->config.rtmp_code : "");
             obs_data_save_json(settings, config_file);
             obs_data_release(settings);
             obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
+			bfree(config_file);
 		}
         delete plugin;
         plugin = nullptr;
-		bfree(config_file);
     }
     bili_api_cleanup();
     obs_log(LOG_INFO, "插件已卸载");
