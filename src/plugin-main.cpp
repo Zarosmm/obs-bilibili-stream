@@ -322,7 +322,7 @@ bool obs_module_load(void) {
         return false;
     }
 	char* config_file = nullptr;
-	config_file = obs_module_file("config.json"	)
+	config_file = obs_module_file("config.json"	);
 	if (config_file) {
 		obs_data_t* settings = obs_data_create_from_json_file(config_file);
         if (settings) {
@@ -342,20 +342,20 @@ bool obs_module_load(void) {
             plugin->config.title = title && strlen(title) > 0 ? strdup(title) : nullptr;
 
         	if (plugin->config.cookies && strlen(plugin->config.cookies) > 0) {
-            	if (bili_check_login_status(config.cookies)) {
-                	config.login_status = true;
+            	if (bili_check_login_status(plugin->config.cookies)) {
+                	plugin->config.login_status = true;
                 	onLoginStatusTriggered();
 
                 	char* new_room_id = nullptr;
                 	char* new_csrf_token = nullptr;
-                	if (bili_get_room_id_and_csrf(config.cookies, &new_room_id, &new_csrf_token)) {
-                    	if (config.room_id) free(config.room_id);
-                    	if (config.csrf_token) free(config.csrf_token);
-                    	config.room_id = new_room_id;
-                    	config.csrf_token = new_csrf_token;
+                	if (bili_get_room_id_and_csrf(plugin->config.cookies, &new_room_id, &new_csrf_token)) {
+                    	if (plugin->config.room_id) free(plugin->config.room_id);
+                    	if (plugin->config.csrf_token) free(plugin->config.csrf_token);
+                    	plugin->config.room_id = new_room_id;
+                    	plugin->config.csrf_token = new_csrf_token;
                     	obs_log(LOG_INFO, "更新 room_id: %s, csrf_token: %s",
-                            	config.room_id ? config.room_id : "无",
-                            	config.csrf_token ? config.csrf_token : "无");
+                            	plugin->config.room_id ? plugin->config.room_id : "无",
+                            	plugin->config.csrf_token ? plugin->config.csrf_token : "无");
                 		} else {
                     		obs_log(LOG_WARNING, "无法通过 cookies 获取 room_id 和 csrf_token，保留现有值");
                 	}
@@ -419,7 +419,7 @@ bool obs_module_load(void) {
 void obs_module_unload(void) {
     if (plugin) {
 		char* config_file = nullptr;
-		config_file = obs_module_file("config.json"	)
+		config_file = obs_module_file("config.json"	);
 		if (config_file) {
 			obs_data_t* settings = obs_data_create_from_json_file(config_file);
             obs_data_set_string(settings, "bilibili_room_id", plugin->config.room_id ? plugin->config.room_id : "");
