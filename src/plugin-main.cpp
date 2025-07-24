@@ -431,7 +431,7 @@ public slots:
         QObject::connect(confirmButton, &QPushButton::clicked, [=]() {
             QString new_title = titleInput->text().trimmed();
             if (!new_title.isEmpty()) {
-                if (bili_update_room_title(&config, new_title.toUtf8().constData())){
+                if (bili_update_room_info(&config, new_title.toUtf8().constData())){
 					if (config.title) free(config.title);
                     config.title = strdup(new_title.toUtf8().constData());
                     obs_log(LOG_INFO, "直播间标题已更新: %s", config.title ? config.title : "无");
@@ -446,6 +446,9 @@ public slots:
                     layout->addWidget(b);
                     QObject::connect(resultDialog, &QDialog::finished, [=]() {
                         resultDialog->deleteLater();
+                    });
+            		QObject::connect(b, &QPushButton::clicked, [=]() {
+                        resultDialog->accept();
                     });
 
                     resultDialog->exec();
@@ -462,52 +465,35 @@ public slots:
                     QObject::connect(resultDialog, &QDialog::finished, [=]() {
                         resultDialog->deleteLater();
                     });
+					QObject::connect(b, &QPushButton::clicked, [=]() {
+                        resultDialog->accept();
+                    });
 
                     resultDialog->exec();
                 }
             }
-            dialog->accept();
         });
 
         // 确定按钮（第二行）
         QObject::connect(confirmButton2, &QPushButton::clicked, [=]() {
-			int area_id = areaCombo->currentData().toInt();
-            if (bili_update_room_info(&config, area_id)) {
-				config.part_id = partCombo->currentData().toInt();
-            	config.area_id = areaCombo->currentData().toInt();
-                obs_log(LOG_INFO, "直播间信息更新成功: part_id=%d, area_id=%d",
-                        config.part_id, config.area_id);
-				updateConfig();
-				QDialog* resultDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
-                resultDialog->setWindowTitle("消息");
-                QVBoxLayout* layout = new QVBoxLayout(resultDialog);
-                QLabel* label = new QLabel("直播间分区已更新", resultDialog);
-                layout->addWidget(label);
+			config.part_id = partCombo->currentData().toInt();
+           	config.area_id = areaCombo->currentData().toInt();
+			updateConfig();
+			QDialog* resultDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
+            resultDialog->setWindowTitle("消息");
+            QVBoxLayout* layout = new QVBoxLayout(resultDialog);
+            QLabel* label = new QLabel("直播间分区已更新", resultDialog);
+            layout->addWidget(label);
 
-                QPushButton* b = new QPushButton("确认", resultDialog);
-                layout->addWidget(b);
-                QObject::connect(resultDialog, &QDialog::finished, [=]() {
-                    resultDialog->deleteLater();
-                });
-
-                resultDialog->exec();
-            } else {
-                obs_log(LOG_ERROR, "直播间信息更新失败");
-				QDialog* resultDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
-                resultDialog->setWindowTitle("消息");
-                QVBoxLayout* layout = new QVBoxLayout(resultDialog);
-                QLabel* label = new QLabel("直播间分区更新失败", resultDialog);
-                layout->addWidget(label);
-
-                QPushButton* b = new QPushButton("确认", resultDialog);
-                layout->addWidget(b);
-                QObject::connect(resultDialog, &QDialog::finished, [=]() {
-                    resultDialog->deleteLater();
-                });
-
-                resultDialog->exec();
-            }
-            dialog->accept();
+            QPushButton* b = new QPushButton("确认", resultDialog);
+            layout->addWidget(b);
+            QObject::connect(resultDialog, &QDialog::finished, [=]() {
+                resultDialog->deleteLater();
+            });
+			QObject::connect(b, &QPushButton::clicked, [=]() {
+                        resultDialog->accept();
+            });
+           	resultDialog->exec();
         });
 
         // 清理
