@@ -332,12 +332,12 @@ bool obs_module_load(void) {
 		obs_log(LOG_INFO, "配置文件路径: %s", config_file);
 		obs_data_t* settings = obs_data_create_from_json_file(config_file);
         if (settings) {
-            char* room_id = obs_data_get_string(settings, "room_id");
-            char* csrf_token = obs_data_get_string(settings, "csrf_token");
-            char* cookies = obs_data_get_string(settings, "cookies");
-            char* title = obs_data_get_string(settings, "title");
-			char* rtmp_addr = obs_data_get_string(settings, "rtmp_addr");
-			char* rtmp_code = obs_data_get_string(settings, "rtmp_code");
+            const char* room_id = obs_data_get_string(settings, "room_id");
+            const char* csrf_token = obs_data_get_string(settings, "csrf_token");
+            const char* cookies = obs_data_get_string(settings, "cookies");
+            const char* title = obs_data_get_string(settings, "title");
+			const char* rtmp_addr = obs_data_get_string(settings, "rtmp_addr");
+			const char* rtmp_code = obs_data_get_string(settings, "rtmp_code");
 			obs_data_release(settings);
 		    obs_log(LOG_INFO, "从数据库加载配置");
 		    obs_log(LOG_INFO, "cookies: %s", cookies);
