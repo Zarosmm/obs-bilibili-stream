@@ -324,12 +324,14 @@ bool obs_module_load(void) {
 	char* config_file = nullptr;
 	config_file = obs_module_file("config.json"	);
 	if (config_file) {
+		obs_log(LOG_INFO, "配置文件路径: %s", config_file);
 		obs_data_t* settings = obs_data_create_from_json_file(config_file);
         if (settings) {
             const char* room_id = obs_data_get_string(settings, "bilibili_room_id");
             const char* csrf_token = obs_data_get_string(settings, "bilibili_csrf_token");
             const char* cookies = obs_data_get_string(settings, "bilibili_cookies");
             const char* title = obs_data_get_string(settings, "bilibili_title");
+			obs_data_release(settings);
 		    obs_log(LOG_INFO, "从数据库加载配置");
 		    obs_log(LOG_INFO, "cookies: %s", cookies);
 		    obs_log(LOG_INFO, "csrf_token: %s", csrf_token);
@@ -340,7 +342,9 @@ bool obs_module_load(void) {
             plugin->config.csrf_token = csrf_token && strlen(csrf_token) > 0 ? strdup(csrf_token) : nullptr;
             plugin->config.cookies = cookies && strlen(cookies) > 0 ? strdup(cookies) : nullptr;
             plugin->config.title = title && strlen(title) > 0 ? strdup(title) : nullptr;
-
+		} else {
+            obs_log(LOG_WARNING, "无法从 OBS 数据库加载配置，使用默认配置");
+        }
         	if (plugin->config.cookies && strlen(plugin->config.cookies) > 0) {
             	if (bili_check_login_status(plugin->config.cookies)) {
                 	plugin->config.login_status = true;
@@ -364,7 +368,7 @@ bool obs_module_load(void) {
             if (!plugin->config.csrf_token) plugin->config.csrf_token = strdup("your_csrf_token");
             if (!plugin->config.title) plugin->config.title = strdup("我的直播");
 
-            obs_log(LOG_INFO, "从 OBS 数据库加载配置: room_id=%s, csrf_token=%s, cookies=%s, title=%s, login_status=%d, streaming=%d",
+            obs_log(LOG_INFO, "当前配置: room_id=%s, csrf_token=%s, cookies=%s, title=%s, login_status=%d, streaming=%d",
                     plugin->config.room_id ? plugin->config.room_id : "无",
                     plugin->config.csrf_token ? plugin->config.csrf_token : "无",
                     plugin->config.cookies ? plugin->config.cookies : "无",
@@ -372,10 +376,6 @@ bool obs_module_load(void) {
                     plugin->config.login_status,
                     plugin->config.streaming);
 
-            obs_data_release(settings);
-        } else {
-            obs_log(LOG_WARNING, "无法从 OBS 数据库加载配置，使用默认配置");
-        }
 	}
 	bfree(config_file);
 
