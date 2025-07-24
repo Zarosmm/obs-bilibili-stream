@@ -471,6 +471,7 @@ public slots:
 
         // 确定按钮（第二行）
         QObject::connect(confirmButton2, &QPushButton::clicked, [=]() {
+			int area_id = areaCombo->currentData().toInt();
             if (bili_update_room_info(&config, area_id)) {
 				config.part_id = partCombo->currentData().toInt();
             	config.area_id = areaCombo->currentData().toInt();

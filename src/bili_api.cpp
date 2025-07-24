@@ -758,7 +758,7 @@ bool bili_stop_live(BiliConfig* config) {
 }
 
 // 更新直播间标题
-bool bili_update_room_info(BiliConfig* config char* title) {
+bool bili_update_room_info(BiliConfig* config, char* title) {
 	// 设置直播标题
     std::string title_data = "room_id=" + std::string(config->room_id) +
                             "&platform=pc_link&title=" + std::string(title) +
@@ -803,7 +803,7 @@ bool bili_update_room_info(BiliConfig* config, int area_id) {
              "room_id=%s&area_id=%d&activity_id=0&platform=pc_link&csrf_token=%s&csrf=%s",
              config->room_id, area_id, config->csrf_token, config->csrf_token);
 
-    headers = build_headers_with_cookie(config->cookies);
+    auto headers = build_headers_with_cookie(config->cookies);
     HttpResponse* response = http_post_with_headers("https://api.live.bilibili.com/room/v1/Room/update", id_data, headers.data());
 	free_headers(headers);
     if (!response || response->status != 200) {
