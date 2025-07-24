@@ -16,6 +16,7 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QComboBox>
+#include <QClipboard>
 #include <windows.h>
 #include "qrcodegen/qrcodegen.hpp"
 #include "bili_api.hpp"
@@ -284,17 +285,11 @@ public slots:
         } else {
             char* rtmp_addr = nullptr;
             char* rtmp_code = nullptr;
-            if (bili_start_live(&config, &rtmp_addr, &rtmp_code)) {
-                obs_log(LOG_INFO, "直播已启动，RTMP 地址: %s, 推流码: %s", rtmp_addr, rtmp_code);
-                streamAction->setText("停止直播");
-                config.streaming = true;
-                config.rtmp_addr = rtmp_addr;
-                config.rtmp_code = rtmp_code;
-				updateConfig();
+            if (!config.room_id){
 				QDialog* resultDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
                 resultDialog->setWindowTitle("消息");
                 QVBoxLayout* layout = new QVBoxLayout(resultDialog);
-                QLabel* label = new QLabel(QString("Bilibili已开始直播请复制以下内容进行推流\nRTMP 地址: %1\n推流码: %2").arg(rtmp_addr, rtmp_code), resultDialog);
+                QLabel* label = new QLabel(QString("请更新直播间分区"), resultDialog);
                 layout->addWidget(label);
                 QPushButton* b = new QPushButton("确认", resultDialog);
                 layout->addWidget(b);
@@ -304,9 +299,36 @@ public slots:
 				QObject::connect(b, &QPushButton::clicked, [=]() {
                     resultDialog->accept();
                 });
+			} else {
+                if (bili_start_live(&config, &rtmp_addr, &rtmp_code)) {
+                    obs_log(LOG_INFO, "直播已启动，RTMP 地址: %s, 推流码: %s", rtmp_addr, rtmp_code);
+                    streamAction->setText("停止直播");
+                    config.streaming = true;
+                    config.rtmp_addr = rtmp_addr;
+                    config.rtmp_code = rtmp_code;
+			    	updateConfig();
+			    	QDialog* resultDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
+                    resultDialog->setWindowTitle("消息");
+                    QVBoxLayout* layout = new QVBoxLayout(resultDialog);
+                    QLabel* label = new QLabel(QString("Bilibili已开始直播请复制以下内容进行推流\n若自定义推流失败请使用预设的B站推流更换推流地址尝试\nRTMP 地址: %1\n推流码: %2").arg(rtmp_addr, rtmp_code), resultDialog);
+                    layout->addWidget(label);
+			    	QPushButton* copy = new QPushButton("复制", resultDialog);
+                    QPushButton* b = new QPushButton("确认", resultDialog);
+                    layout->addWidget(b);
+                    QObject::connect(resultDialog, &QDialog::finished, [=]() {
+                        resultDialog->deleteLater();
+                    });
+			    	QObject::connect(copy, &QPushButton::clicked, [=]() {
+                        QClipboard* clipboard = QApplication::clipboard();
+                        clipboard->setText(QString("RTMP 地址: %1\n推流码: %2").arg(rtmp_addr, rtmp_code));
+                    });
+			    	QObject::connect(b, &QPushButton::clicked, [=]() {
+                        resultDialog->accept();
+                    });
 
-                resultDialog->exec();
-            }
+                    resultDialog->exec();
+                }
+			}
             free(rtmp_addr);
             free(rtmp_code);
         }
