@@ -301,26 +301,39 @@ public slots:
                 QVBoxLayout* layout = new QVBoxLayout(resultDialog);
                 QLabel* label = new QLabel("已开始直播", resultDialog);
                 layout->addWidget(label);
-				// 启动推流
-                if (!obs_output_start(output)) {
-                    obs_log(LOG_ERROR, "无法启动 RTMP 推流: %s", obs_output_get_last_error(output));
-                    obs_output_release(output);
-                    obs_service_release(service);
-                    free(rtmp_addr);
-                    free(rtmp_code);
-                    obs_data_release(service_settings);
-                    obs_data_release(output_settings);
-                    QDialog* resultDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
+				if (service &&  output && service_settings && output_settings) {
+					obs_data_set_string(service_settings, "server", rtmp_addr ? rtmp_addr : "");
+    			    obs_data_set_string(service_settings, "key", rtmp_code ? rtmp_code : "");
+				    // 启动推流
+                    if (!obs_output_start(output)) {
+                        obs_log(LOG_ERROR, "无法启动 RTMP 推流: %s", obs_output_get_last_error(output));
+                        obs_output_release(output);
+                        obs_service_release(service);
+                        obs_data_release(service_settings);
+                        obs_data_release(output_settings);
+                        QDialog* resultDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
+                        resultDialog->setWindowTitle("消息");
+                        QVBoxLayout* layout = new QVBoxLayout(resultDialog);
+                        QLabel* label = new QLabel(QString("推流失败：%1").arg(obs_output_get_last_error(output)), resultDialog);
+                        layout->addWidget(label);
+                        QPushButton* b = new QPushButton("确认", resultDialog);
+                        layout->addWidget(b);
+                        QObject::connect(b, &QPushButton::clicked, [=]() { resultDialog->accept(); });
+                        QObject::connect(resultDialog, &QDialog::finished, [=]() { resultDialog->deleteLater(); });
+                        resultDialog->exec();
+                    }
+				} else {
+					QDialog* resultDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
                     resultDialog->setWindowTitle("消息");
                     QVBoxLayout* layout = new QVBoxLayout(resultDialog);
-                    QLabel* label = new QLabel(QString("推流失败：%1").arg(obs_output_get_last_error(output)), resultDialog);
+                    QLabel* label = new QLabel(QString("自动推流失败请复制推流地址和推流码手动推流\n推流地址：%1\n推流码：%2").arg(rtmp_addr, rtmp_code), resultDialog);
                     layout->addWidget(label);
                     QPushButton* b = new QPushButton("确认", resultDialog);
                     layout->addWidget(b);
                     QObject::connect(b, &QPushButton::clicked, [=]() { resultDialog->accept(); });
                     QObject::connect(resultDialog, &QDialog::finished, [=]() { resultDialog->deleteLater(); });
                     resultDialog->exec();
-                }
+				}
                 QPushButton* b = new QPushButton("确认", resultDialog);
                 layout->addWidget(b);
                 QObject::connect(resultDialog, &QDialog::finished, [=]() {
@@ -603,48 +616,21 @@ bool obs_module_load(void) {
     obs_data_set_string(plugin->service_settings, "key", plugin->config.rtmp_code ? plugin->config.rtmp_code : "");
 
     plugin->service = obs_service_create("rtmp_custom", "bilibili_service", plugin->service_settings, nullptr);
-    if (!service) {
+    if (!plugin->service) {
         obs_log(LOG_ERROR, "无法创建 Bilibili RTMP 服务");
-        free(rtmp_addr);
-        free(rtmp_code);
         obs_data_release(plugin->service_settings);
-        QDialog* resultDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
-        resultDialog->setWindowTitle("消息");
-        QVBoxLayout* layout = new QVBoxLayout(resultDialog);
-        QLabel* label = new QLabel("无法创建 RTMP 服务", resultDialog);
-        layout->addWidget(label);
-        QPushButton* b = new QPushButton("确认", resultDialog);
-        layout->addWidget(b);
-        QObject::connect(b, &QPushButton::clicked, [=]() { resultDialog->accept(); });
-        QObject::connect(resultDialog, &QDialog::finished, [=]() { resultDialog->deleteLater(); });
-        resultDialog->exec();
-        return;
+	} else {
+        plugin->output_settings = obs_data_create();
+        plugin->output = obs_output_create("rtmp_output", "bilibili_stream", plugin->output_settings, nullptr);
+        if (plugin->output) {
+            obs_output_set_service(plugin->output, plugin->service);
+        } else {
+            obs_service_release(plugin->service);
+            obs_data_release(plugin->service_settings);
+            obs_data_release(plugin->output_settings);
+		}
     }
 
-	// 创建 RTMP 输出
-    plugin->output_settings = obs_data_create();
-    plugin->output = obs_output_create("rtmp_output", "bilibili_stream", plugin->output_settings, nullptr);
-    if (!output) {
-        obs_log(LOG_ERROR, "无法创建 RTMP 输出");
-        obs_service_release(plugin->service);
-        free(rtmp_addr);
-        free(rtmp_code);
-        obs_data_release(plugin->service_settings);
-        obs_data_release(plugin->output_settings);
-        QDialog* resultDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
-        resultDialog->setWindowTitle("消息");
-        QVBoxLayout* layout = new QVBoxLayout(resultDialog);
-        QLabel* label = new QLabel("无法创建 RTMP 输出", resultDialog);
-        layout->addWidget(label);
-        QPushButton* b = new QPushButton("确认", resultDialog);
-        layout->addWidget(b);
-        QObject::connect(b, &QPushButton::clicked, [=]() { resultDialog->accept(); });
-        QObject::connect(resultDialog, &QDialog::finished, [=]() { resultDialog->deleteLater(); });
-        resultDialog->exec();
-        return;
-    }
-    // 设置服务到输出
-    obs_output_set_service(plugin->output, plugin->service);
 
     auto menuBar = main_window->menuBar();
     if (!menuBar) {
