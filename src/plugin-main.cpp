@@ -311,22 +311,178 @@ public slots:
 
     void onUpdateRoomInfoTriggered() {
         obs_log(LOG_INFO, "更新直播间信息菜单项被点击");
-		/* Todo
-			弹出窗口，窗口里面有1个输入框和2个下拉框
-			char* partition_file = nullptr;
-			partition_file = obs_module_file("partition.json");
-			partition.json : [{"id":2,"name":"网游", "list":[{"id":86, "name":"英雄联盟"}]}]
-			第一个下拉框中的数据是partition.json中的partition
-			第二个下拉框中的数据是partition.json中partition的list
-			输入框是输入的直播间标题
-            窗口初始化时读取partition.json再根据有没有part_id来显示已选择的第一个下拉框，没有默认第一个part
-			根据有没有area_id来显示已选择的第二个下拉框，没有默认选择第一个下拉框对应的part的第一个 area
-			每次选择part后更新第二个下拉框内容
-			点击确定按钮后，先更新config再调用bili_update_room_info
-			if (bili_update_room_info(&config)) {
-            	obs_log(LOG_INFO, "直播间信息更新成功");
-        	}
-		*/
+
+        // 创建对话框
+        QDialog* dialog = new QDialog((QWidget*)obs_frontend_get_main_window());
+        dialog->setWindowTitle("更新直播间信息");
+        QVBoxLayout* layout = new QVBoxLayout(dialog);
+
+        // 标题输入框
+        QLabel* titleLabel = new QLabel("直播间标题:", dialog);
+        QLineEdit* titleInput = new QLineEdit(config.title ? config.title : "我的直播", dialog);
+        layout->addWidget(titleLabel);
+        layout->addWidget(titleInput);
+
+        // 分区下拉框
+        QLabel* partLabel = new QLabel("分区:", dialog);
+        QComboBox* partCombo = new QComboBox(dialog);
+        layout->addWidget(partLabel);
+        layout->addWidget(partCombo);
+
+        // 子分区下拉框
+        QLabel* areaLabel = new QLabel("子分区:", dialog);
+        QComboBox* areaCombo = new QComboBox(dialog);
+        layout->addWidget(areaLabel);
+        layout->addWidget(areaCombo);
+
+        // 确定和取消按钮
+        QPushButton* confirmButton = new QPushButton("确定", dialog);
+        QPushButton* cancelButton = new QPushButton("取消", dialog);
+        layout->addWidget(confirmButton);
+        layout->addWidget(cancelButton);
+
+        // 读取 partition.json
+        char* partition_file = obs_module_file("partition.json");
+        obs_data_t* partition_data = nullptr;
+        if (partition_file && std::filesystem::exists(partition_file)) {
+            partition_data = obs_data_create_from_json_file(partition_file);
+            if (!partition_data) {
+                obs_log(LOG_ERROR, "无法解析 partition.json: %s", partition_file);
+            }
+        } else {
+            obs_log(LOG_ERROR, "partition.json 不存在: %s", partition_file ? partition_file : "路径为空");
+        }
+        if (partition_file) bfree(partition_file);
+
+        // 填充分区下拉框
+        struct Part {
+            int id;
+            QString name;
+            obs_data_t* list;
+        };
+        std::vector<Part> parts;
+        if (partition_data) {
+            obs_data_array_t* array = obs_data_get_array(partition_data, "");
+            size_t count = obs_data_array_count(array);
+            for (size_t i = 0; i < count; i++) {
+                obs_data_t* item = obs_data_array_item(array, i);
+                Part part;
+                part.id = obs_data_get_int(item, "id");
+                part.name = QString::fromUtf8(obs_data_get_string(item, "name"));
+                part.list = obs_data_get_array(item, "list");
+                parts.push_back(part);
+                obs_data_release(item);
+            }
+            obs_data_array_release(array);
+        }
+
+        // 如果 partition.json 为空，使用默认分区
+        if (parts.empty()) {
+            parts.push_back({2, "网游", nullptr});
+            obs_log(LOG_WARNING, "partition.json 为空，使用默认分区: 网游");
+        }
+
+        // 填充分区下拉框并设置默认值
+        int selected_part_index = 0;
+        for (size_t i = 0; i < parts.size(); i++) {
+            partCombo->addItem(parts[i].name, parts[i].id);
+            if (parts[i].id == config.part_id) {
+                selected_part_index = i;
+            }
+        }
+        partCombo->setCurrentIndex(selected_part_index);
+
+        // 填充子分区下拉框
+        auto updateAreaCombo = [&](int part_index) {
+            areaCombo->clear();
+            if (part_index >= 0 && part_index < (int)parts.size() && parts[part_index].list) {
+                obs_data_array_t* areas = parts[part_index].list;
+                size_t count = obs_data_array_count(areas);
+                int selected_area_index = 0;
+                for (size_t i = 0; i < count; i++) {
+                    obs_data_t* area = obs_data_array_item(areas, i);
+                    int id = obs_data_get_int(area, "id");
+                    QString name = QString::fromUtf8(obs_data_get_string(area, "name"));
+                    areaCombo->addItem(name, id);
+                    if (id == config.area_id) {
+                        selected_area_index = i;
+                    }
+                    obs_data_release(area);
+                }
+                areaCombo->setCurrentIndex(selected_area_index);
+            } else {
+                // 默认子分区（如果 part 没有 list 或无效）
+                areaCombo->addItem("英雄联盟", 86);
+                if (config.area_id == 86) {
+                    areaCombo->setCurrentIndex(0);
+                }
+            }
+        };
+
+        // 初始化子分区下拉框
+        updateAreaCombo(selected_part_index);
+
+        // 分区选择改变时更新子分区
+        QObject::connect(partCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), [=](int index) {
+            updateAreaCombo(index);
+        });
+
+        // 确定按钮
+        QObject::connect(confirmButton, &QPushButton::clicked, [=]() {
+            // 更新 config
+            QString new_title = titleInput->text().trimmed();
+            if (!new_title.isEmpty()) {
+                if (config.title) free(config.title);
+                config.title = strdup(new_title.toUtf8().constData());
+            }
+
+            config.part_id = partCombo->currentData().toInt();
+            config.area_id = areaCombo->currentData().toInt();
+
+            // 调用 bili_update_room_info
+            if (bili_update_room_info(&config, config.area_id)) {
+                obs_log(LOG_INFO, "直播间信息更新成功: title=%s, part_id=%d, area_id=%d",
+                        config.title, config.part_id, config.area_id);
+            } else {
+                obs_log(LOG_ERROR, "直播间信息更新失败");
+            }
+
+            // 保存配置
+            char* config_file = obs_module_config_path("config.json");
+            if (config_file) {
+                obs_data_t* settings = obs_data_create();
+                obs_data_set_string(settings, "room_id", config.room_id ? config.room_id : "");
+                obs_data_set_string(settings, "csrf_token", config.csrf_token ? config.csrf_token : "");
+                obs_data_set_string(settings, "cookies", config.cookies ? config.cookies : "");
+                obs_data_set_string(settings, "title", config.title ? config.title : "");
+                obs_data_set_string(settings, "rtmp_addr", config.rtmp_addr ? config.rtmp_addr : "");
+                obs_data_set_string(settings, "rtmp_code", config.rtmp_code ? config.rtmp_code : "");
+                obs_data_set_int(settings, "part_id", config.part_id);
+                obs_data_set_int(settings, "area_id", config.area_id);
+                obs_data_save_json(settings, config_file);
+                obs_data_release(settings);
+                obs_log(LOG_INFO, "配置已保存到 OBS 用户配置目录");
+                bfree(config_file);
+            }
+
+            dialog->accept();
+        });
+
+        // 取消按钮
+        QObject::connect(cancelButton, &QPushButton::clicked, [=]() {
+            dialog->reject();
+        });
+
+        // 清理
+        QObject::connect(dialog, &QDialog::finished, [=]() {
+            if (partition_data) obs_data_release(partition_data);
+            for (auto& part : parts) {
+                if (part.list) obs_data_array_release(part.list);
+            }
+            dialog->deleteLater();
+        });
+
+        dialog->exec();
     }
 };
 
