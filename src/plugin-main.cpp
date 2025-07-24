@@ -437,7 +437,7 @@ public slots:
             config.area_id = areaCombo->currentData().toInt();
 
             // 调用 bili_update_room_info
-            if (bili_update_room_info(&config, config.area_id)) {
+            if (bili_update_room_info(&config)) {
                 obs_log(LOG_INFO, "直播间信息更新成功: title=%s, part_id=%d, area_id=%d",
                         config.title, config.part_id, config.area_id);
             } else {
