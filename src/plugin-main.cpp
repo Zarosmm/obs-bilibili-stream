@@ -13,6 +13,7 @@
 #include <QPainter>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QComboBox>
 #include <windows.h>
 #include "qrcodegen/qrcodegen.hpp"
 #include "bili_api.hpp"
@@ -344,13 +345,9 @@ public slots:
         // 读取 partition.json
         char* partition_file = obs_module_file("partition.json");
         obs_data_t* partition_data = nullptr;
-        if (partition_file && std::filesystem::exists(partition_file)) {
-            partition_data = obs_data_create_from_json_file(partition_file);
-            if (!partition_data) {
-                obs_log(LOG_ERROR, "无法解析 partition.json: %s", partition_file);
-            }
-        } else {
-            obs_log(LOG_ERROR, "partition.json 不存在: %s", partition_file ? partition_file : "路径为空");
+        partition_data = obs_data_create_from_json_file(partition_file);
+        if (!partition_data) {
+            obs_log(LOG_ERROR, "无法解析 partition.json: %s", partition_file);
         }
         if (partition_file) bfree(partition_file);
 
