@@ -139,7 +139,7 @@ public slots:
 		    config_file = obs_module_file("config.json");
 		    if (config_file) {
 		    	obs_data_t* settings = obs_data_create_from_json_file(config_file);
-		    	obs_data_set_object(settings, "config", &plugin->config);
+		    	obs_data_set_object(settings, "config", config);
                 obs_data_save_json(settings, config_file);
                 obs_data_release(settings);
                 obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
@@ -216,7 +216,7 @@ public slots:
 		            config_file = obs_module_file("config.json");
 		            if (config_file) {
 		            	obs_data_t* settings = obs_data_create_from_json_file(config_file);
-		            	obs_data_set_object(settings, "config", &plugin->config);
+		            	obs_data_set_object(settings, "config", config);
                         obs_data_save_json(settings, config_file);
                         obs_data_release(settings);
                         obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
@@ -278,7 +278,7 @@ public slots:
 		config_file = obs_module_file("config.json");
 		if (config_file) {
 			obs_data_t* settings = obs_data_create_from_json_file(config_file);
-			obs_data_set_object(settings, "config", &plugin->config);
+			obs_data_set_object(settings, "config", config);
             obs_data_save_json(settings, config_file);
             obs_data_release(settings);
             obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
@@ -364,7 +364,7 @@ bool obs_module_load(void) {
             if (!plugin->config.room_id) plugin->config.room_id = strdup("12345");
             if (!plugin->config.csrf_token) plugin->config.csrf_token = strdup("your_csrf_token");
             if (!plugin->config.title) plugin->config.title = strdup("我的直播");
-			obs_log(LOG_INFO, "当前配置:)
+			obs_log(LOG_INFO, "当前配置:")
 			obs_log(LOG_INFO, "cookies: %s", plugin->config.cookies ? plugin->config.cookies "无");
 		    obs_log(LOG_INFO, "csrf_token: %s", plugin->config.csrf_token ? plugin->config.csrf_token "无");
 		    obs_log(LOG_INFO, "room_id: %s", plugin->config.room_id ? plugin->config.room_id "无");
