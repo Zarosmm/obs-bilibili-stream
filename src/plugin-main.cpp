@@ -31,6 +31,8 @@ public:
         config.streaming = false;
         config.rtmp_addr = nullptr;
         config.rtmp_code = nullptr;
+		config.part_id = nullptr;
+		config.area_id = nullptr;
     }
 
     ~BilibiliStreamPlugin() {
@@ -40,6 +42,8 @@ public:
         if (config.title) free(config.title);
         if (config.rtmp_code) free(config.rtmp_code);
         if (config.rtmp_addr) free(config.rtmp_addr);
+		if (config.part_id) free(config.part_id);
+		if (config.area_id) free(config.area_id);
     }
 
     BiliConfig config;
@@ -145,6 +149,8 @@ public slots:
                 obs_data_set_string(settings, "title", config.title ? config.title : "");
                 obs_data_set_string(settings, "rtmp_addr", config.rtmp_addr ? config.rtmp_addr : "");
                 obs_data_set_string(settings, "rtmp_code", config.rtmp_code ? config.rtmp_code : "");
+				obs_data_set_int(settings, "pare_id", config.parent_id ? config.parent_id : 2);
+				obs_data_set_int(settings, "area_id", config.area_id ? config.area_id : 86);
                 obs_data_save_json(settings, config_file);
                 obs_data_release(settings);
                 obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
@@ -227,6 +233,8 @@ public slots:
                         obs_data_set_string(settings, "title", config.title ? config.title : "");
                         obs_data_set_string(settings, "rtmp_addr", config.rtmp_addr ? config.rtmp_addr : "");
                         obs_data_set_string(settings, "rtmp_code", config.rtmp_code ? config.rtmp_code : "");
+						obs_data_set_int(settings, "pare_id", config.parent_id ? config.parent_id : 2);
+						obs_data_set_int(settings, "area_id", config.area_id ? config.area_id : 86);
                         obs_data_save_json(settings, config_file);
                         obs_data_release(settings);
                         obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
@@ -274,7 +282,7 @@ public slots:
         } else {
             char* rtmp_addr = nullptr;
             char* rtmp_code = nullptr;
-            if (bili_start_live(&config, 624, &rtmp_addr, &rtmp_code)) {
+            if (bili_start_live(&config, &rtmp_addr, &rtmp_code)) {
                 obs_log(LOG_INFO, "直播已启动，RTMP 地址: %s, 推流码: %s", rtmp_addr, rtmp_code);
                 streamAction->setText("停止直播");
                 config.streaming = true;
@@ -294,6 +302,8 @@ public slots:
             obs_data_set_string(settings, "title", config.title ? config.title : "");
             obs_data_set_string(settings, "rtmp_addr", config.rtmp_addr ? config.rtmp_addr : "");
             obs_data_set_string(settings, "rtmp_code", config.rtmp_code ? config.rtmp_code : "");
+			obs_data_set_int(settings, "pare_id", config.parent_id ? config.parent_id : 2);
+			obs_data_set_int(settings, "area_id", config.area_id ? config.area_id : 86);
             obs_data_save_json(settings, config_file);
             obs_data_release(settings);
             obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
@@ -303,9 +313,22 @@ public slots:
 
     void onUpdateRoomInfoTriggered() {
         obs_log(LOG_INFO, "更新直播间信息菜单项被点击");
-        if (bili_update_room_info(&config, 642)) {
-            obs_log(LOG_INFO, "直播间信息更新成功");
-        }
+		/* Todo
+			弹出窗口，窗口里面有1个输入框和2个下拉框
+			char* partition_file = nullptr;
+			partition_file = obs_module_file("partition.json");
+			partition.json : [{"id":2,"name":"网游", "list":[{"id":86, "name":"英雄联盟"}]}]
+			第一个下拉框中的数据是partition.json中的partition
+			第二个下拉框中的数据是partition.json中partition的list
+			输入框是输入的直播间标题
+            窗口初始化时读取partition.json再根据有没有part_id来显示已选择的第一个下拉框，没有默认第一个part
+			根据有没有area_id来显示已选择的第二个下拉框，没有默认选择第一个下拉框对应的part的第一个 area
+			每次选择part后更新第二个下拉框内容
+			点击确定按钮后，先更新config再调用bili_update_room_info
+			if (bili_update_room_info(&config)) {
+            	obs_log(LOG_INFO, "直播间信息更新成功");
+        	}
+		*/
     }
 };
 
@@ -338,6 +361,8 @@ bool obs_module_load(void) {
             const char* title = obs_data_get_string(settings, "title");
 			const char* rtmp_addr = obs_data_get_string(settings, "rtmp_addr");
 			const char* rtmp_code = obs_data_get_string(settings, "rtmp_code");
+            const int pare_id = obs_data_get_int(settings, "pare_id");
+            const int area_id = obs_data_get_int(settings, "area_id");
 			obs_data_release(settings);
 		    obs_log(LOG_INFO, "从数据库加载配置");
 		    obs_log(LOG_INFO, "cookies: %s", cookies && strlen(cookies) ? cookies : "");
@@ -346,12 +371,17 @@ bool obs_module_load(void) {
 		    obs_log(LOG_INFO, "title: %s", title && strlen(title) ? title : "");
 			obs_log(LOG_INFO, "rtmp_addr: %s", rtmp_addr && strlen(rtmp_addr) ? rtmp_addr : "");
 			obs_log(LOG_INFO, "rtmp_code: %s", rtmp_code && strlen(rtmp_code) ? rtmp_code : "");
+			obs_log(LOG_INFO, "pare_id: %d", pare_id);
+			obs_log(LOG_INFO, "area_id: %d", area_id);
             plugin->config.room_id = room_id && strlen(room_id) > 0 ? strdup(room_id) : nullptr;
             plugin->config.csrf_token = csrf_token && strlen(csrf_token) > 0 ? strdup(csrf_token) : nullptr;
             plugin->config.cookies = cookies && strlen(cookies) > 0 ? strdup(cookies) : nullptr;
             plugin->config.title = title && strlen(title) > 0 ? strdup(title) : nullptr;
 			plugin->config.rtmp_addr = rtmp_addr && strlen(rtmp_addr) > 0 ? strdup(rtmp_addr) : nullptr;
 			plugin->config.rtmp_code = rtmp_code && strlen(rtmp_code) > 0 ? strdup(rtmp_code) : nullptr;
+            plugin->config.parent_id = pare_id;
+            plugin->config.area_id = area_id;
+
 		} else {
             obs_log(LOG_WARNING, "无法从 OBS 数据库加载配置，使用默认配置");
         }
@@ -384,6 +414,8 @@ bool obs_module_load(void) {
 		obs_log(LOG_INFO, "title: %s", plugin->config.title ? plugin->config.title : "无");
 		obs_log(LOG_INFO, "rtmp_addr: %s", plugin->config.rtmp_addr ? plugin->config.rtmp_addr : "无");
 		obs_log(LOG_INFO, "rtmp_code: %s", plugin->config.rtmp_code ? plugin->config.rtmp_code : "无");
+		obs_log(LOG_INFO, "pare_id: %d", plugin->config.parent_id);
+		obs_log(LOG_INFO, "area_id: %d", plugin->config.area_id);
 		bfree(config_file);
 	}
 
@@ -423,6 +455,7 @@ bool obs_module_load(void) {
 }
 
 void obs_module_unload(void) {
+	bili_api_cleanup();
     if (plugin) {
 		char* config_file = nullptr;
 		config_file = obs_module_file("config.json");
@@ -434,15 +467,15 @@ void obs_module_unload(void) {
             obs_data_set_string(settings, "title", plugin->config.title ? plugin->config.title : "");
             obs_data_set_string(settings, "rtmp_addr", plugin->config.rtmp_addr ? plugin->config.rtmp_addr : "");
             obs_data_set_string(settings, "rtmp_code", plugin->config.rtmp_code ? plugin->config.rtmp_code : "");
+            obs_data_set_int(settings, "parent_id", plugin->config.parent_id ? plugin->config.parent_id : 2);
+            obs_data_set_int(settings, "area_id", plugin->config.area_id ? plugin->config.area_id : 86);
             obs_data_save_json(settings, config_file);
             obs_data_release(settings);
             obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
 			bfree(config_file);
 		}
-        delete plugin;
         plugin = nullptr;
     }
-    bili_api_cleanup();
     obs_log(LOG_INFO, "插件已卸载");
 }
 
