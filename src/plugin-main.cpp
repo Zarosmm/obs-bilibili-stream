@@ -478,6 +478,8 @@ public slots:
         QObject::connect(confirmButton2, &QPushButton::clicked, [=]() {
 			config.part_id = partCombo->currentData().toInt();
            	config.area_id = areaCombo->currentData().toInt();
+			obs_log(LOG_INFO, "直播间分区已更新: %d, %d", config.part_id, config.area_id);
+			obs_log(LOG_INFO, "%d", areaCombo->currentData());
 			updateConfig();
 			QDialog* resultDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
             resultDialog->setWindowTitle("消息");
