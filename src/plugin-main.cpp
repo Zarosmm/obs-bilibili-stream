@@ -286,7 +286,7 @@ public slots:
         } else {
             char* rtmp_addr = nullptr;
             char* rtmp_code = nullptr;
-            if (!config.room_id){
+            if (!config.area_id){
 				QDialog* resultDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
                 resultDialog->setWindowTitle("消息");
                 QVBoxLayout* layout = new QVBoxLayout(resultDialog);
