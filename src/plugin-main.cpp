@@ -86,6 +86,26 @@ private:
     }
 
 public slots:
+	void updateConfig() {
+		char* config_file = nullptr;
+		config_file = obs_module_file("config.json");
+		if (config_file) {
+			obs_data_t* settings = obs_data_create();
+            obs_data_set_string(settings, "room_id", config.room_id ? config.room_id : "");
+            obs_data_set_string(settings, "csrf_token", config.csrf_token ? config.csrf_token : "");
+            obs_data_set_string(settings, "cookies", config.cookies ? config.cookies : "");
+            obs_data_set_string(settings, "title", config.title ? config.title : "");
+            obs_data_set_string(settings, "rtmp_addr", config.rtmp_addr ? config.rtmp_addr : "");
+            obs_data_set_string(settings, "rtmp_code", config.rtmp_code ? config.rtmp_code : "");
+			obs_data_set_int(settings, "part_id", config.part_id ? config.part_id : 2);
+			obs_data_set_int(settings, "area_id", config.area_id ? config.area_id : 86);
+            obs_data_save_json(settings, config_file);
+            obs_data_release(settings);
+            obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
+            bfree(config_file);
+		}
+    }
+
     void onManualTriggered() {
         obs_log(LOG_INFO, "手动登录菜单项被点击");
 
@@ -138,32 +158,7 @@ public slots:
                 obs_log(LOG_WARNING, "登录失败，请检查Cookie是否正确");
             }
 
-            char* config_file = nullptr;
-		    config_file = obs_module_file("config.json");
-		    if (config_file) {
-		    	obs_data_t* settings = obs_data_create();
-                obs_data_set_string(settings, "room_id", config.room_id ? config.room_id : "");
-                obs_data_set_string(settings, "csrf_token", config.csrf_token ? config.csrf_token : "");
-                obs_data_set_string(settings, "cookies", config.cookies ? config.cookies : "");
-                obs_data_set_string(settings, "title", config.title ? config.title : "");
-                obs_data_set_string(settings, "rtmp_addr", config.rtmp_addr ? config.rtmp_addr : "");
-                obs_data_set_string(settings, "rtmp_code", config.rtmp_code ? config.rtmp_code : "");
-				obs_data_set_int(settings, "part_id", config.part_id ? config.part_id : 2);
-				obs_data_set_int(settings, "area_id", config.area_id ? config.area_id : 86);
-                obs_data_save_json(settings, config_file);
-                obs_data_release(settings);
-        		obs_log(LOG_INFO, "手动登录当前配置:");
-        		obs_log(LOG_INFO, "cookies: %s", config.cookies ? config.cookies : "无");
-        		obs_log(LOG_INFO, "csrf_token: %s", config.csrf_token ? config.csrf_token : "无");
-        		obs_log(LOG_INFO, "room_id: %s", config.room_id ? config.room_id : "无");
-        		obs_log(LOG_INFO, "title: %s", config.title ? config.title : "无");
-        		obs_log(LOG_INFO, "rtmp_addr: %s", config.rtmp_addr ? config.rtmp_addr : "无");
-        		obs_log(LOG_INFO, "rtmp_code: %s", config.rtmp_code ? config.rtmp_code : "无");
-        		obs_log(LOG_INFO, "part_id: %d", config.part_id);
-        		obs_log(LOG_INFO, "area_id: %d", config.area_id);
-                obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
-				bfree(config_file);
-		    }
+            updateConfig();
             loginDialog->accept();
         });
 
@@ -230,33 +225,7 @@ public slots:
                     } else {
                         obs_log(LOG_WARNING, "无法通过 cookies 获取 room_id 和 csrf_token，保留现有值");
                     }
-
-                    char* config_file = nullptr;
-		            config_file = obs_module_file("config.json");
-		            if (config_file) {
-		            	obs_data_t* settings = obs_data_create();
-                        obs_data_set_string(settings, "room_id", config.room_id ? config.room_id : "");
-                        obs_data_set_string(settings, "csrf_token", config.csrf_token ? config.csrf_token : "");
-                        obs_data_set_string(settings, "cookies", config.cookies ? config.cookies : "");
-                        obs_data_set_string(settings, "title", config.title ? config.title : "");
-                        obs_data_set_string(settings, "rtmp_addr", config.rtmp_addr ? config.rtmp_addr : "");
-                        obs_data_set_string(settings, "rtmp_code", config.rtmp_code ? config.rtmp_code : "");
-						obs_data_set_int(settings, "part_id", config.part_id ? config.part_id : 2);
-						obs_data_set_int(settings, "area_id", config.area_id ? config.area_id : 86);
-                        obs_data_save_json(settings, config_file);
-                        obs_data_release(settings);
-						obs_log(LOG_INFO, "扫码登录当前配置:");
-		                obs_log(LOG_INFO, "cookies: %s", config.cookies ? config.cookies : "无");
-		                obs_log(LOG_INFO, "csrf_token: %s", config.csrf_token ? config.csrf_token : "无");
-		                obs_log(LOG_INFO, "room_id: %s", config.room_id ? config.room_id : "无");
-		                obs_log(LOG_INFO, "title: %s", config.title ? config.title : "无");
-		                obs_log(LOG_INFO, "rtmp_addr: %s", config.rtmp_addr ? config.rtmp_addr : "无");
-		                obs_log(LOG_INFO, "rtmp_code: %s", config.rtmp_code ? config.rtmp_code : "无");
-		                obs_log(LOG_INFO, "part_id: %d", config.part_id);
-		                obs_log(LOG_INFO, "area_id: %d", config.area_id);
-                        obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
-                        bfree(config_file);
-		            }
+					updateConfig();
                     qrDialog->accept();
                 } else {
                     obs_log(LOG_WARNING, "登录状态检查失败");
@@ -295,6 +264,19 @@ public slots:
                 streamAction->setText("开始直播");
                 config.streaming = false;
                 obs_log(LOG_INFO, "直播已停止");
+				QDialog* resultDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
+                resultDialog->setWindowTitle("消息");
+                QVBoxLayout* layout = new QVBoxLayout(resultDialog);
+                QLabel* label = new QLabel("已停止直播", resultDialog);
+                layout->addWidget(label);
+
+                QPushButton* b = new QPushButton("确认", resultDialog);
+                layout->addWidget(b);
+                QObject::connect(resultDialog, &QDialog::finished, [=]() {
+                    resultDialog->deleteLater();
+                });
+
+                resultDialog->exec();
             }
         } else {
             char* rtmp_addr = nullptr;
@@ -305,6 +287,20 @@ public slots:
                 config.streaming = true;
                 config.rtmp_addr = rtmp_addr;
                 config.rtmp_code = rtmp_code;
+				updateConfig();
+				QDialog* resultDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
+                resultDialog->setWindowTitle("消息");
+                QVBoxLayout* layout = new QVBoxLayout(resultDialog);
+                QLabel* label = new QLabel("已开始直播", resultDialog);
+                layout->addWidget(label);
+
+                QPushButton* b = new QPushButton("确认", resultDialog);
+                layout->addWidget(b);
+                QObject::connect(resultDialog, &QDialog::finished, [=]() {
+                    resultDialog->deleteLater();
+                });
+
+                resultDialog->exec();
             }
             free(rtmp_addr);
             free(rtmp_code);
@@ -331,7 +327,7 @@ public slots:
 
         // 第二行：直播分区 + 分区下拉框 + 子分区下拉框 + 确认按钮
         QHBoxLayout* partitionLayout = new QHBoxLayout();
-        QLabel* partLabel = new QLabel("直播分区:", dialog);
+        QLabel* partLabel = new QLabel("直播间分区:", dialog);
         QComboBox* partCombo = new QComboBox(dialog);
         QComboBox* areaCombo = new QComboBox(dialog);
         QPushButton* confirmButton2 = new QPushButton("确认", dialog);
@@ -435,22 +431,80 @@ public slots:
         QObject::connect(confirmButton, &QPushButton::clicked, [=]() {
             QString new_title = titleInput->text().trimmed();
             if (!new_title.isEmpty()) {
-                if (config.title) free(config.title);
-                config.title = strdup(new_title.toUtf8().constData());
-                obs_log(LOG_INFO, "直播间标题已更新: %s", config.title ? config.title : "无");
+                if (bili_update_room_title(&config, new_title.toUtf8().constData())){
+					if (config.title) free(config.title);
+                    config.title = strdup(new_title.toUtf8().constData());
+                    obs_log(LOG_INFO, "直播间标题已更新: %s", config.title ? config.title : "无");
+				    updateConfig();
+					QDialog* resultDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
+                    resultDialog->setWindowTitle("消息");
+                    QVBoxLayout* layout = new QVBoxLayout(resultDialog);
+                    QLabel* label = new QLabel("直播间标题已更新", resultDialog);
+                    layout->addWidget(label);
+
+                    QPushButton* b = new QPushButton("确认", resultDialog);
+                    layout->addWidget(b);
+                    QObject::connect(resultDialog, &QDialog::finished, [=]() {
+                        resultDialog->deleteLater();
+                    });
+
+                    resultDialog->exec();
+				} else {
+                    obs_log(LOG_ERROR, "更新直播间标题失败");
+					QDialog* resultDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
+                    resultDialog->setWindowTitle("消息");
+                    QVBoxLayout* layout = new QVBoxLayout(resultDialog);
+                    QLabel* label = new QLabel("直播间标题更新失败", resultDialog);
+                    layout->addWidget(label);
+
+                    QPushButton* b = new QPushButton("确认", resultDialog);
+                    layout->addWidget(b);
+                    QObject::connect(resultDialog, &QDialog::finished, [=]() {
+                        resultDialog->deleteLater();
+                    });
+
+                    resultDialog->exec();
+                }
             }
             dialog->accept();
         });
 
         // 确定按钮（第二行）
         QObject::connect(confirmButton2, &QPushButton::clicked, [=]() {
-            config.part_id = partCombo->currentData().toInt();
-            config.area_id = areaCombo->currentData().toInt();
-            if (bili_update_room_info(&config)) {
+            if (bili_update_room_info(&config, area_id)) {
+				config.part_id = partCombo->currentData().toInt();
+            	config.area_id = areaCombo->currentData().toInt();
                 obs_log(LOG_INFO, "直播间信息更新成功: part_id=%d, area_id=%d",
                         config.part_id, config.area_id);
+				updateConfig();
+				QDialog* resultDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
+                resultDialog->setWindowTitle("消息");
+                QVBoxLayout* layout = new QVBoxLayout(resultDialog);
+                QLabel* label = new QLabel("直播间分区已更新", resultDialog);
+                layout->addWidget(label);
+
+                QPushButton* b = new QPushButton("确认", resultDialog);
+                layout->addWidget(b);
+                QObject::connect(resultDialog, &QDialog::finished, [=]() {
+                    resultDialog->deleteLater();
+                });
+
+                resultDialog->exec();
             } else {
                 obs_log(LOG_ERROR, "直播间信息更新失败");
+				QDialog* resultDialog = new QDialog((QWidget*)obs_frontend_get_main_window());
+                resultDialog->setWindowTitle("消息");
+                QVBoxLayout* layout = new QVBoxLayout(resultDialog);
+                QLabel* label = new QLabel("直播间分区更新失败", resultDialog);
+                layout->addWidget(label);
+
+                QPushButton* b = new QPushButton("确认", resultDialog);
+                layout->addWidget(b);
+                QObject::connect(resultDialog, &QDialog::finished, [=]() {
+                    resultDialog->deleteLater();
+                });
+
+                resultDialog->exec();
             }
             dialog->accept();
         });
@@ -500,15 +554,6 @@ bool obs_module_load(void) {
             const int part_id = obs_data_get_int(settings, "part_id");
             const int area_id = obs_data_get_int(settings, "area_id");
 			obs_data_release(settings);
-		    obs_log(LOG_INFO, "从数据库加载配置");
-		    obs_log(LOG_INFO, "cookies: %s", cookies && strlen(cookies) ? cookies : "");
-		    obs_log(LOG_INFO, "csrf_token: %s", csrf_token && strlen(csrf_token) ? csrf_token : "");
-		    obs_log(LOG_INFO, "room_id: %s", room_id && strlen(room_id) ? room_id : "");
-		    obs_log(LOG_INFO, "title: %s", title && strlen(title) ? title : "");
-			obs_log(LOG_INFO, "rtmp_addr: %s", rtmp_addr && strlen(rtmp_addr) ? rtmp_addr : "");
-			obs_log(LOG_INFO, "rtmp_code: %s", rtmp_code && strlen(rtmp_code) ? rtmp_code : "");
-			obs_log(LOG_INFO, "part_id: %d", part_id);
-			obs_log(LOG_INFO, "area_id: %d", area_id);
             plugin->config.room_id = room_id && strlen(room_id) > 0 ? strdup(room_id) : nullptr;
             plugin->config.csrf_token = csrf_token && strlen(csrf_token) > 0 ? strdup(csrf_token) : nullptr;
             plugin->config.cookies = cookies && strlen(cookies) > 0 ? strdup(cookies) : nullptr;
@@ -545,15 +590,6 @@ bool obs_module_load(void) {
         if (!plugin->config.room_id) plugin->config.room_id = strdup("12345");
         if (!plugin->config.csrf_token) plugin->config.csrf_token = strdup("your_csrf_token");
         if (!plugin->config.title) plugin->config.title = strdup("我的直播");
-		obs_log(LOG_INFO, "当前配置:");
-		obs_log(LOG_INFO, "cookies: %s", plugin->config.cookies ? plugin->config.cookies : "无");
-		obs_log(LOG_INFO, "csrf_token: %s", plugin->config.csrf_token ? plugin->config.csrf_token : "无");
-		obs_log(LOG_INFO, "room_id: %s", plugin->config.room_id ? plugin->config.room_id : "无");
-		obs_log(LOG_INFO, "title: %s", plugin->config.title ? plugin->config.title : "无");
-		obs_log(LOG_INFO, "rtmp_addr: %s", plugin->config.rtmp_addr ? plugin->config.rtmp_addr : "无");
-		obs_log(LOG_INFO, "rtmp_code: %s", plugin->config.rtmp_code ? plugin->config.rtmp_code : "无");
-		obs_log(LOG_INFO, "part_id: %d", plugin->config.part_id);
-		obs_log(LOG_INFO, "area_id: %d", plugin->config.area_id);
 		bfree(config_file);
 	}
 
@@ -595,32 +631,6 @@ bool obs_module_load(void) {
 void obs_module_unload(void) {
 	bili_api_cleanup();
     if (plugin) {
-		char* config_file = nullptr;
-		config_file = obs_module_file("config.json");
-		if (config_file) {
-			obs_data_t* settings = obs_data_create();
-            obs_data_set_string(settings, "room_id", plugin->config.room_id ? plugin->config.room_id : "");
-            obs_data_set_string(settings, "csrf_token", plugin->config.csrf_token ? plugin->config.csrf_token : "");
-            obs_data_set_string(settings, "cookies", plugin->config.cookies ? plugin->config.cookies : "");
-            obs_data_set_string(settings, "title", plugin->config.title ? plugin->config.title : "");
-            obs_data_set_string(settings, "rtmp_addr", plugin->config.rtmp_addr ? plugin->config.rtmp_addr : "");
-            obs_data_set_string(settings, "rtmp_code", plugin->config.rtmp_code ? plugin->config.rtmp_code : "");
-            obs_data_set_int(settings, "part_id", plugin->config.part_id ? plugin->config.part_id : 2);
-            obs_data_set_int(settings, "area_id", plugin->config.area_id ? plugin->config.area_id : 86);
-            obs_data_save_json(settings, config_file);
-            obs_data_release(settings);
-			obs_log(LOG_INFO, "关闭时当前配置:");
-            obs_log(LOG_INFO, "cookies: %s", plugin->config.cookies ? plugin->config.cookies : "无");
-            obs_log(LOG_INFO, "csrf_token: %s", plugin->config.csrf_token ? plugin->config.csrf_token : "无");
-            obs_log(LOG_INFO, "room_id: %s", plugin->config.room_id ? plugin->config.room_id : "无");
-            obs_log(LOG_INFO, "title: %s", plugin->config.title ? plugin->config.title : "无");
-            obs_log(LOG_INFO, "rtmp_addr: %s", plugin->config.rtmp_addr ? plugin->config.rtmp_addr : "无");
-            obs_log(LOG_INFO, "rtmp_code: %s", plugin->config.rtmp_code ? plugin->config.rtmp_code : "无");
-            obs_log(LOG_INFO, "part_id: %d", plugin->config.part_id);
-            obs_log(LOG_INFO, "area_id: %d", plugin->config.area_id);
-            obs_log(LOG_INFO, "配置已保存到 OBS 数据库");
-			bfree(config_file);
-		}
         plugin = nullptr;
     }
     obs_log(LOG_INFO, "插件已卸载");

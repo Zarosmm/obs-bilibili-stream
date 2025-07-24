@@ -757,11 +757,11 @@ bool bili_stop_live(BiliConfig* config) {
     return true;
 }
 
-// 更新直播间信息
-bool bili_update_room_info(BiliConfig* config) {
+// 更新直播间标题
+bool bili_update_room_info(BiliConfig* config char* title) {
 	// 设置直播标题
     std::string title_data = "room_id=" + std::string(config->room_id) +
-                            "&platform=pc_link&title=" + std::string(config->title) +
+                            "&platform=pc_link&title=" + std::string(title) +
                             "&csrf_token=" + std::string(config->csrf_token) +
                             "&csrf=" + std::string(config->csrf_token);
     if (title_data.length() >= 512) {
@@ -770,18 +770,18 @@ bool bili_update_room_info(BiliConfig* config) {
     }
 
     auto headers = build_headers_with_cookie(config->cookies);
-    HttpResponse* title_response = http_post_with_headers("https://api.live.bilibili.com/room/v1/Room/update",
+    HttpResponse* response = http_post_with_headers("https://api.live.bilibili.com/room/v1/Room/update",
                                                          title_data.c_str(), headers.data());
     free_headers(headers); // 修复：正确调用 free_headers
-    if (!title_response || title_response->status != 200) {
-        obs_log(LOG_ERROR, "设置直播标题失败，状态码: %ld", title_response ? title_response->status : 0);
-        if (title_response) http_response_free(title_response);
+    if (!response || response->status != 200) {
+        obs_log(LOG_ERROR, "设置直播标题失败，状态码: %ld", response ? response->status : 0);
+        if (response) http_response_free(response);
         return false;
     }
-    obs_log(LOG_DEBUG, "title_response data: %s", title_response->data ? title_response->data : "无数据");
+    obs_log(LOG_DEBUG, "response data: %s", response->data ? response->data : "无数据");
     std::string err;
-    json11::Json json = json11::Json::parse(title_response->data, err);
-    http_response_free(title_response);
+    json11::Json json = json11::Json::parse(response->data, err);
+    http_response_free(response);
     if (!err.empty()) {
         obs_log(LOG_ERROR, "JSON 解析失败: %s", err.c_str());
         return false;
@@ -792,12 +792,16 @@ bool bili_update_room_info(BiliConfig* config) {
         return false;
     }
     obs_log(LOG_INFO, "直播标题设置成功: %s", config->title);
+    return true;
+}
 
-    // 更新直播间分区
+
+// 更新直播间分区
+bool bili_update_room_info(BiliConfig* config, int area_id) {
     char id_data[512];
     snprintf(id_data, sizeof(id_data),
              "room_id=%s&area_id=%d&activity_id=0&platform=pc_link&csrf_token=%s&csrf=%s",
-             config->room_id, config->area_id, config->csrf_token, config->csrf_token);
+             config->room_id, area_id, config->csrf_token, config->csrf_token);
 
     headers = build_headers_with_cookie(config->cookies);
     HttpResponse* response = http_post_with_headers("https://api.live.bilibili.com/room/v1/Room/update", id_data, headers.data());
@@ -808,8 +812,8 @@ bool bili_update_room_info(BiliConfig* config) {
         return false;
     }
     // 使用 json11 解析 JSON
-    err.clear();
-    json = json11::Json::parse(response->data, err);
+	std::string err;
+    json11::Json json = json11::Json::parse(response->data, err);
     if (!err.empty()) {
         obs_log(LOG_ERROR, "JSON 解析失败: %s", err.c_str());
         http_response_free(response);
