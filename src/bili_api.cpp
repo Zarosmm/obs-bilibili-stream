@@ -779,7 +779,7 @@ bool bili_update_room_info(BiliConfig* config) {
         return false;
     }
     obs_log(LOG_DEBUG, "title_response data: %s", title_response->data ? title_response->data : "无数据");
-    err.clear();
+    std::string err;
     json = json11::Json::parse(title_response->data, err);
     http_response_free(title_response);
     if (!err.empty()) {
@@ -808,7 +808,7 @@ bool bili_update_room_info(BiliConfig* config) {
         return false;
     }
     // 使用 json11 解析 JSON
-    std::string err;
+    err.clear();
     json11::Json json = json11::Json::parse(response->data, err);
     if (!err.empty()) {
         obs_log(LOG_ERROR, "JSON 解析失败: %s", err.c_str());
