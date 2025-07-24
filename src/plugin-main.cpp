@@ -275,7 +275,9 @@ public slots:
                 QObject::connect(resultDialog, &QDialog::finished, [=]() {
                     resultDialog->deleteLater();
                 });
-
+				QObject::connect(b, &QPushButton::clicked, [=]() {
+                    resultDialog->accept();
+                });
                 resultDialog->exec();
             }
         } else {
@@ -298,6 +300,9 @@ public slots:
                 layout->addWidget(b);
                 QObject::connect(resultDialog, &QDialog::finished, [=]() {
                     resultDialog->deleteLater();
+                });
+				QObject::connect(b, &QPushButton::clicked, [=]() {
+                    resultDialog->accept();
                 });
 
                 resultDialog->exec();
