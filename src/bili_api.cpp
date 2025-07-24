@@ -799,7 +799,7 @@ bool bili_update_room_info(BiliConfig* config) {
              "room_id=%s&area_id=%d&activity_id=0&platform=pc_link&csrf_token=%s&csrf=%s",
              config->room_id, config->area_id, config->csrf_token, config->csrf_token);
 
-    auto headers = build_headers_with_cookie(config->cookies);
+    headers = build_headers_with_cookie(config->cookies);
     HttpResponse* response = http_post_with_headers("https://api.live.bilibili.com/room/v1/Room/update", id_data, headers.data());
 	free_headers(headers);
     if (!response || response->status != 200) {
@@ -809,7 +809,7 @@ bool bili_update_room_info(BiliConfig* config) {
     }
     // 使用 json11 解析 JSON
     err.clear();
-    json11::Json json = json11::Json::parse(response->data, err);
+    json = json11::Json::parse(response->data, err);
     if (!err.empty()) {
         obs_log(LOG_ERROR, "JSON 解析失败: %s", err.c_str());
         http_response_free(response);
