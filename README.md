@@ -2,6 +2,9 @@
 
 这是一个为 OBS Studio 开发的插件，用于简化在 Bilibili 平台上的直播流程。插件支持通过手动输入 Cookie 或扫码登录 Bilibili，更新直播间信息，并获取 RTMP 推流地址和推流码。
 
+## 源码位置
+Releases 页面 `bilibili-stream-for-obs-<version>-source.tar.xz`
+
 ## 安装方法
 
 1. 从 [Releases 页面](https://github.com/Zarosmm/obs-bilibili-stream/releases) 下载最新的插件压缩包。
