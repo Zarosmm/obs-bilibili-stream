@@ -27,7 +27,7 @@ jobs:
 
   create-release:
     name: Create Release 🛫
-    if: false
+    if: github.ref_type == 'tag'
     runs-on: ubuntu-24.04
     needs: build-project
     defaults:
@@ -122,3 +122,22 @@ jobs:
             ${{ github.workspace }}/*.ddeb
             ${{ github.workspace }}/*.tar.xz
 
+      - name: Create Release 🛫
+        if: fromJSON(steps.check.outputs.validTag)
+        id: create_release_public
+        uses: softprops/action-gh-release@9d7c94cfd0a1f3ed45544c887983e9fa900f0564
+        with:
+          draft: true
+          prerelease: ${{ fromJSON(steps.check.outputs.prerelease) }}
+          tag_name: ${{ steps.check.outputs.version }}
+          name: ${{ needs.build-project.outputs.pluginName }} ${{ steps.check.outputs.version }}
+          body_path: ${{ github.workspace }}/CHECKSUMS.txt
+          repository: Zarosmm/obs-bilibili-stream
+          token: ${{ secrets.REPO_TOKEN }}
+          files: |
+            ${{ github.workspace }}/*.exe
+            ${{ github.workspace }}/*.zip
+            ${{ github.workspace }}/*.pkg
+            ${{ github.workspace }}/*.deb
+            ${{ github.workspace }}/*.ddeb
+            ${{ github.workspace }}/*.tar.xz

@@ -14,16 +14,19 @@ include(helpers)
 configure_file(src/plugin-support.c.in src/plugin-support.c @ONLY)
 
 add_library(${CMAKE_PROJECT_NAME} MODULE
-        src/http_client.h
-        src/http_client.c
-        src/bili_api.cpp
-        src/bili_api.hpp
-        src/plugin-main.cpp
-        ${CMAKE_CURRENT_BINARY_DIR}/src/plugin-support.c
-        src/qrcodegen/qrcodegen.cpp
+        src/bilibili_api.hpp
+        src/http_client.hpp
+        src/plugin_utils.hpp
+        src/md5.hpp
         src/qrcodegen/qrcodegen.hpp
-        src/json11/json11.cpp
         src/json11/json11.hpp
+        src/plugin-main.cpp
+        src/bilibili_api.cpp
+        src/http_client.cpp
+        src/plugin_utils.cpp
+        src/md5.cpp
+        src/qrcodegen/qrcodegen.cpp
+        src/json11/json11.cpp
 )
 
 find_package(libobs REQUIRED)
