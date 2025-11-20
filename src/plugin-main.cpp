@@ -167,8 +167,18 @@ public slots:
         qrDialog->setLayout(layout);
 
         QTimer* timer = new QTimer(qrDialog);
+		int* retryCount = new int(0);
         connect(timer, &QTimer::timeout, [=]() mutable {
             std::string cookies;
+
+			if (*retryCount > 180) {
+		        timer->stop();
+		        qrLabel->setText("二维码已过期，请重新打开");
+		        // 或者直接关闭窗口 qrDialog->reject();
+		        delete retryCount; 
+		        return;
+		    }
+			
             if (Bili::BiliApi::qrLogin(qr_key, cookies, message)) {
                 timer->stop();
                 config.cookies = cookies;
