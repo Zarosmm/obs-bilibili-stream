@@ -44,10 +44,10 @@ void HttpClient::cleanup()
 HttpResponse HttpClient::get(const std::string &url, const std::vector<std::string> &headers)
 {
 	HttpResponse response;
+	response.status = 0;
 	CURL *curl = curl_easy_init();
 	if (!curl) {
-		// obs_log(LOG_ERROR, "无法初始化 CURL");
-		response.status = 0;
+		response.data = "CURL 初始化失败";
 		return response;
 	}
 
@@ -67,11 +67,15 @@ HttpResponse HttpClient::get(const std::string &url, const std::vector<std::stri
 
 	CURLcode res = curl_easy_perform(curl);
 	if (res != CURLE_OK) {
-		// obs_log(LOG_ERROR, "GET 请求失败: %s", curl_easy_strerror(res));
-		curl_slist_free_all(header_list);
-		curl_easy_cleanup(curl);
-		return response;
-	}
+        const char* err_msg = curl_easy_strerror(res);
+        
+        response.data = std::string("网络错误: ") + err_msg;
+        response.status = 0;
+
+        curl_slist_free_all(header_list);
+        curl_easy_cleanup(curl);
+        return response;
+    }
 
 	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.status);
 	response.data = std::move(response_data);
@@ -84,10 +88,10 @@ HttpResponse HttpClient::get(const std::string &url, const std::vector<std::stri
 HttpResponse HttpClient::post(const std::string &url, const std::string &data, const std::vector<std::string> &headers)
 {
 	HttpResponse response;
+	response.status = 0;
 	CURL *curl = curl_easy_init();
 	if (!curl) {
-		// obs_log(LOG_ERROR, "无法初始化 CURL");
-		response.status = 0;
+		response.data = "CURL 初始化失败";
 		return response;
 	}
 
@@ -109,11 +113,15 @@ HttpResponse HttpClient::post(const std::string &url, const std::string &data, c
 
 	CURLcode res = curl_easy_perform(curl);
 	if (res != CURLE_OK) {
-		// obs_log(LOG_ERROR, "POST 请求失败: %s", curl_easy_strerror(res));
-		curl_slist_free_all(header_list);
-		curl_easy_cleanup(curl);
-		return response;
-	}
+        const char* err_msg = curl_easy_strerror(res);
+        
+        response.data = std::string("网络错误: ") + err_msg;
+        response.status = 0;
+
+        curl_slist_free_all(header_list);
+        curl_easy_cleanup(curl);
+        return response;
+    }
 
 	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.status);
 	response.data = std::move(response_data);
