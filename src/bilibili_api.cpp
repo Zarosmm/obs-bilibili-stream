@@ -150,12 +150,35 @@ bool BiliApi::qrLogin(std::string &qr_key, std::string &cookies, std::string &me
 
 	cookies = response.cookies;
 	if (cookies.empty()) {
-		// obs_log(LOG_ERROR, "无法获取登录 Cookies");
+        std::string loginUrl = json["data"]["url"].string_value();
+        if (!loginUrl.empty()) {
+            obs_log(LOG_INFO, "从 URL 解析 Cookies...");
+            
+            auto extractParam = [&](const std::string& key) -> std::string {
+                std::string search = key + "=";
+                size_t start = loginUrl.find(search);
+                if (start == std::string::npos) return "";
+                start += search.length();
+                size_t end = loginUrl.find("&", start);
+                if (end == std::string::npos) end = loginUrl.length();
+                return loginUrl.substr(start, end - start);
+            };
+
+            std::string sessData = extractParam("SESSDATA");
+            std::string biliJct = extractParam("bili_jct"); // 即 csrf
+            std::string dedeUserId = extractParam("DedeUserID");
+
+            if (!sessData.empty() && !biliJct.empty()) {
+                cookies = "SESSDATA=" + sessData + "; bili_jct=" + biliJct + "; DedeUserID=" + dedeUserId + ";";
+            }
+        }
+    }
+	if (cookies.empty()) {
+		obs_log(LOG_ERROR, "无法获取登录 Cookies");
 		message = "无法获取登录 Cookies";
 		return false;
 	}
 
-	// obs_log(LOG_INFO, "二维码登录成功");
 	message = "二维码登录成功";
 	return true;
 }
