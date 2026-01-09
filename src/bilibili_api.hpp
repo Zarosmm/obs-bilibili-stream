@@ -28,7 +28,7 @@ public:
 	static bool getRoomIdAndCsrf(const std::string &cookies, std::string &room_id, std::string &csrf_token,
 				     std::string &message);
 	static json11::Json getPartitionList(std::string &message);
-	static bool startLive(Config &config, std::string &rtmp_addr, std::string &rtmp_code, std::string &message);
+	static bool startLive(Config &config, std::string &rtmp_addr, std::string &rtmp_code, std::string &message, std::string &face_qr);
 	static bool stopLive(const Config &config, std::string &message);
 	static bool updateRoomInfo(const Config &config, const std::string &title, std::string &message);
 

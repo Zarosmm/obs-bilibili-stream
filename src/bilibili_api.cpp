@@ -289,7 +289,7 @@ json11::Json BiliApi::getPartitionList(std::string &message)
 	return json["data"];
 }
 
-bool BiliApi::startLive(Config &config, std::string &rtmp_addr, std::string &rtmp_code, std::string &message)
+bool BiliApi::startLive(Config &config, std::string &rtmp_addr, std::string &rtmp_code, std::string &message, std::string &face_qr)
 {
 	if (config.room_id.empty() || config.csrf_token.empty()) {
 		obs_log(LOG_ERROR, "配置无效: room_id=%s, csrf_token=%s, title=%s");
@@ -352,17 +352,21 @@ bool BiliApi::startLive(Config &config, std::string &rtmp_addr, std::string &rtm
 		message = "启动直播失败，状态码: " + std::to_string(response.status);
 		return false;
 	}
-	if (response.status != 200) {
-		message = "获取二维码失败，状态码: " + std::to_string(response.status);
-		if (!response.data.empty()) {
-			message += ", 数据: " + response.data;
-		}
-		return false;
-	}
 
 	json = json11::Json::parse(response.data, err);
-	if (!err.empty() || json["code"].int_value() != 0) {
-		//obs_log(LOG_ERROR, "启动直播失败: %s", err.empty() ? json["message"].string_value().c_str() : err.c_str());
+	int code = json["code"].int_value();
+	if (code != 0) {
+		message = json["message"].string_value();
+
+		// 如果是人脸识别
+		if (code == 60024) {
+			std::string face_url = json["data"]["qr"].string_value();
+			obs_log(LOG_WARNING, "需要人脸识别，URL: %s", face_url.c_str());
+			// 这里可以弹出一个对话框或者在 UI 上显示二维码
+			message = "需要人脸验证，请扫描二维码 " + face_url;
+			face_qr = face_url;
+			return false;
+		}
 		return false;
 	}
 

@@ -218,8 +218,8 @@ public slots:
         } else if (!config.area_id) {
             showMessageDialog("请更新直播间分区", "消息");
         } else {
-            std::string rtmp_addr, rtmp_code;
-            if (Bili::BiliApi::startLive(config, rtmp_addr, rtmp_code, message)) {
+            std::string rtmp_addr, rtmp_code, face_qr;
+            if (Bili::BiliApi::startLive(config, rtmp_addr, rtmp_code, message, face_qr)) {
                 streamAction->setText("停止直播");
                 config.streaming = true;
                 config.rtmp_addr = rtmp_addr;
@@ -242,7 +242,42 @@ public slots:
                 connect(dialog, &QDialog::finished, [=]() { dialog->deleteLater(); });
                 dialog->exec();
 	        } else {
-		        showMessageDialog(QString::fromUtf8(message), "消息");
+		        if (!face_qr.empty()) {
+			        QDialog *faceDialog = new QDialog((QWidget *)obs_frontend_get_main_window());
+			        faceDialog->setWindowTitle("实名认证（人脸识别）");
+			        QVBoxLayout *layout = new QVBoxLayout(faceDialog);
+
+			        // 生成并显示二维码
+			        QLabel *qrLabel = new QLabel(faceDialog);
+			        QPixmap qrPixmap = generateQrCode(face_qr);
+			        if (qrPixmap.isNull()) {
+				        qrLabel->setText("二维码生成失败，请检查网络或日志");
+			        } else {
+				        qrLabel->setPixmap(qrPixmap);
+				        qrLabel->setAlignment(Qt::AlignCenter);
+			        }
+
+			        QLabel *tipLabel =
+				        new QLabel("请使用<b>手机 Bilibili App</b> 扫描下方二维码完成人脸认证。<br>"
+					           "认证完成后，请重新点击“开始直播”。",
+					           faceDialog);
+			        tipLabel->setWordWrap(true);
+			        tipLabel->setAlignment(Qt::AlignCenter);
+
+			        QPushButton *closeBtn = new QPushButton("我已完成认证", faceDialog);
+
+			        layout->addWidget(tipLabel);
+			        layout->addWidget(qrLabel);
+			        layout->addWidget(closeBtn);
+
+			        connect(closeBtn, &QPushButton::clicked, faceDialog, &QDialog::accept);
+			        connect(faceDialog, &QDialog::finished, faceDialog, &QDialog::deleteLater);
+
+			        faceDialog->exec();
+		        } else {
+			        // 其他类型的开播失败错误
+			        showMessageDialog(QString::fromUtf8(message.c_str()), "开播失败");
+		        }
             }
         }
     }
