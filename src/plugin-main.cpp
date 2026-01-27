@@ -136,7 +136,7 @@ private:
         for (int y = 0; y < size; ++y) {
             for (int x = 0; x < size; ++x) {
                 if (qr.getModule(x, y)) {
-                    painter.drawRect((x + borer )* scale, (y + border ) * scale, scale, scale);
+                    painter.drawRect((x + border )* scale, (y + border ) * scale, scale, scale);
                 }
             }
         }
