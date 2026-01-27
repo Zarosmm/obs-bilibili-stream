@@ -125,9 +125,10 @@ private:
             obs_log(LOG_ERROR, "生成二维码失败");
             return QPixmap();
         }
-        const int scale = 5;
+        const int scale = 10;
+		const int border = 4;
         const int size = qr.getSize();
-        QImage image(size * scale, size * scale, QImage::Format_RGB32);
+        QImage image((size + border * 2) * scale, (size +border * 2 ) * scale, QImage::Format_RGB32);
         image.fill(Qt::white);
         QPainter painter(&image);
         painter.setPen(Qt::NoPen);
@@ -135,7 +136,7 @@ private:
         for (int y = 0; y < size; ++y) {
             for (int x = 0; x < size; ++x) {
                 if (qr.getModule(x, y)) {
-                    painter.drawRect(x * scale, y * scale, scale, scale);
+                    painter.drawRect((x + borer )* scale, (y + border ) * scale, scale, scale);
                 }
             }
         }
