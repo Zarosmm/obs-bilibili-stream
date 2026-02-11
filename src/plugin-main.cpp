@@ -15,7 +15,9 @@
 #include <QTimer>
 #include <QClipboard>
 #include <QApplication>
+#include <QDesktopServices>
 #include <QPainter>
+#include <QUrl>
 #include "qrcodegen/qrcodegen.hpp"
 #include "bilibili_api.hpp"
 #include "plugin_utils.hpp"
@@ -45,6 +47,19 @@ private:
     QMenuBar* menuBar;
     QAction* loginStatusAction = nullptr;
     QAction* streamAction = nullptr;
+
+    void openLiveRoom() {
+        if (config.room_id.empty()) {
+            showMessageDialog("room_id 为空，请先登录或更新直播间信息", "消息");
+            return;
+        }
+
+        const QString url = QString("https://live.bilibili.com/%1").arg(QString::fromStdString(config.room_id));
+        if (!QDesktopServices::openUrl(QUrl(url))) {
+            showMessageDialog(QStringLiteral("无法打开浏览器，请手动访问：\n") + url, "消息");
+        }
+    }
+
     void setupMenu() {
         QMenu* bilibiliMenu = menuBar->addMenu("Bilibili直播");
         QMenu* loginMenu = bilibiliMenu->addMenu("登录");
@@ -53,11 +68,13 @@ private:
         loginStatusAction->setCheckable(true);
         loginStatusAction->setEnabled(false);
         streamAction = bilibiliMenu->addAction("开始直播");
+        QAction* openRoom = bilibiliMenu->addAction("打开直播间");
         QAction* updateRoomInfo = bilibiliMenu->addAction("更新直播间信息");
 
         connect(scanQrcode, &QAction::triggered, this, &BilibiliStreamPlugin::onScanQrcodeTriggered);
         connect(loginStatusAction, &QAction::triggered, this, &BilibiliStreamPlugin::onLoginStatusTriggered);
         connect(streamAction, &QAction::triggered, this, &BilibiliStreamPlugin::onStreamButtonTriggered);
+        connect(openRoom, &QAction::triggered, this, [this]() { openLiveRoom(); });
         connect(updateRoomInfo, &QAction::triggered, this, &BilibiliStreamPlugin::onUpdateRoomInfoTriggered);
     }
 
@@ -288,6 +305,16 @@ public slots:
         QDialog* dialog = new QDialog((QWidget*)obs_frontend_get_main_window());
         dialog->setWindowTitle("更新直播间信息");
         QVBoxLayout* layout = new QVBoxLayout(dialog);
+
+        QHBoxLayout* openRoomLayout = new QHBoxLayout();
+        QLabel* roomLabel = new QLabel(QString("直播间: https://live.bilibili.com/%1")
+                                           .arg(QString::fromStdString(config.room_id)),
+                                       dialog);
+        QPushButton* openRoomBtn = new QPushButton("打开直播间", dialog);
+        openRoomLayout->addWidget(roomLabel);
+        openRoomLayout->addWidget(openRoomBtn);
+        layout->addLayout(openRoomLayout);
+        connect(openRoomBtn, &QPushButton::clicked, this, [this]() { openLiveRoom(); });
 
         QHBoxLayout* titleLayout = new QHBoxLayout();
         QLineEdit* titleInput = new QLineEdit(config.title.c_str(), dialog);
