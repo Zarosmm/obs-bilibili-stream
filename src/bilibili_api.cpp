@@ -141,7 +141,8 @@ bool BiliApi::qrLogin(std::string &qr_key, std::string &cookies, std::string &me
 			obs_log(LOG_INFO, "二维码已扫描，等待确认");
 			message = "二维码已扫描，等待确认";
 		} else {
-			obs_log(LOG_ERROR, "API 返回错误，code: %d, message: %s", code, json["message"].string_value().c_str());
+			obs_log(LOG_ERROR, "API 返回错误，code: %d, message: %s", code,
+				json["message"].string_value().c_str());
 			message = "API 返回错误，code: " + std::to_string(code) +
 				  ", message: " + json["message"].string_value();
 		}
@@ -150,29 +151,32 @@ bool BiliApi::qrLogin(std::string &qr_key, std::string &cookies, std::string &me
 
 	cookies = response.cookies;
 	if (cookies.empty()) {
-        std::string loginUrl = json["data"]["url"].string_value();
-        if (!loginUrl.empty()) {
-            obs_log(LOG_INFO, "从 URL 解析 Cookies...");
-            
-            auto extractParam = [&](const std::string& key) -> std::string {
-                std::string search = key + "=";
-                size_t start = loginUrl.find(search);
-                if (start == std::string::npos) return "";
-                start += search.length();
-                size_t end = loginUrl.find("&", start);
-                if (end == std::string::npos) end = loginUrl.length();
-                return loginUrl.substr(start, end - start);
-            };
+		std::string loginUrl = json["data"]["url"].string_value();
+		if (!loginUrl.empty()) {
+			obs_log(LOG_INFO, "从 URL 解析 Cookies...");
 
-            std::string sessData = extractParam("SESSDATA");
-            std::string biliJct = extractParam("bili_jct"); // 即 csrf
-            std::string dedeUserId = extractParam("DedeUserID");
+			auto extractParam = [&](const std::string &key) -> std::string {
+				std::string search = key + "=";
+				size_t start = loginUrl.find(search);
+				if (start == std::string::npos)
+					return "";
+				start += search.length();
+				size_t end = loginUrl.find("&", start);
+				if (end == std::string::npos)
+					end = loginUrl.length();
+				return loginUrl.substr(start, end - start);
+			};
 
-            if (!sessData.empty() && !biliJct.empty()) {
-                cookies = "SESSDATA=" + sessData + "; bili_jct=" + biliJct + "; DedeUserID=" + dedeUserId + ";";
-            }
-        }
-    }
+			std::string sessData = extractParam("SESSDATA");
+			std::string biliJct = extractParam("bili_jct"); // 即 csrf
+			std::string dedeUserId = extractParam("DedeUserID");
+
+			if (!sessData.empty() && !biliJct.empty()) {
+				cookies = "SESSDATA=" + sessData + "; bili_jct=" + biliJct +
+					  "; DedeUserID=" + dedeUserId + ";";
+			}
+		}
+	}
 	if (cookies.empty()) {
 		obs_log(LOG_ERROR, "无法获取登录 Cookies");
 		message = "无法获取登录 Cookies";
@@ -289,7 +293,8 @@ json11::Json BiliApi::getPartitionList(std::string &message)
 	return json["data"];
 }
 
-bool BiliApi::startLive(Config &config, std::string &rtmp_addr, std::string &rtmp_code, std::string &message, std::string &face_qr)
+bool BiliApi::startLive(Config &config, std::string &rtmp_addr, std::string &rtmp_code, std::string &message,
+			std::string &face_qr)
 {
 	if (config.room_id.empty() || config.csrf_token.empty()) {
 		obs_log(LOG_ERROR, "配置无效: room_id=%s, csrf_token=%s, title=%s");
@@ -403,7 +408,8 @@ bool BiliApi::stopLive(const Config &config, std::string &message)
 	std::string err;
 	json11::Json json = json11::Json::parse(response.data, err);
 	if (!err.empty() || json["code"].int_value() != 0) {
-		obs_log(LOG_ERROR, "停止直播失败: %s", err.empty() ? json["message"].string_value().c_str() : err.c_str());
+		obs_log(LOG_ERROR, "停止直播失败: %s",
+			err.empty() ? json["message"].string_value().c_str() : err.c_str());
 		message = "停止直播失败: " + (err.empty() ? json["message"].string_value() : err);
 		return false;
 	}
