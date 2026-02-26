@@ -25,10 +25,13 @@
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
 
+class BilibiliStreamPlugin;
+static BilibiliStreamPlugin* plugin = nullptr;
+
 class BilibiliStreamPlugin : public QObject {
     Q_OBJECT
 public:
-    explicit BilibiliStreamPlugin(QMainWindow* parent) : QObject(parent) {
+    explicit BilibiliStreamPlugin(QMainWindow* parent) : QObject(nullptr) {
         menuBar = parent->menuBar();
         setupMenu();
         loadConfig();
@@ -40,6 +43,7 @@ public:
 
     ~BilibiliStreamPlugin() {
         obs_log(LOG_DEBUG, "释放 BilibiliStreamPlugin 资源");
+        plugin = nullptr;
     }
 
 private:
@@ -407,8 +411,6 @@ public slots:
         dialog->exec();
     }
 };
-
-static BilibiliStreamPlugin* plugin = nullptr;
 
 bool obs_module_load(void) {
     Bili::BiliApi::init();
