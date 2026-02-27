@@ -67,15 +67,15 @@ HttpResponse HttpClient::get(const std::string &url, const std::vector<std::stri
 
 	CURLcode res = curl_easy_perform(curl);
 	if (res != CURLE_OK) {
-        const char* err_msg = curl_easy_strerror(res);
-        
-        response.data = std::string("网络错误: ") + err_msg;
-        response.status = 0;
+		const char *err_msg = curl_easy_strerror(res);
 
-        curl_slist_free_all(header_list);
-        curl_easy_cleanup(curl);
-        return response;
-    }
+		response.data = std::string("网络错误: ") + err_msg;
+		response.status = 0;
+
+		curl_slist_free_all(header_list);
+		curl_easy_cleanup(curl);
+		return response;
+	}
 
 	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.status);
 	response.data = std::move(response_data);
@@ -113,15 +113,15 @@ HttpResponse HttpClient::post(const std::string &url, const std::string &data, c
 
 	CURLcode res = curl_easy_perform(curl);
 	if (res != CURLE_OK) {
-        const char* err_msg = curl_easy_strerror(res);
-        
-        response.data = std::string("网络错误: ") + err_msg;
-        response.status = 0;
+		const char *err_msg = curl_easy_strerror(res);
 
-        curl_slist_free_all(header_list);
-        curl_easy_cleanup(curl);
-        return response;
-    }
+		response.data = std::string("网络错误: ") + err_msg;
+		response.status = 0;
+
+		curl_slist_free_all(header_list);
+		curl_easy_cleanup(curl);
+		return response;
+	}
 
 	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.status);
 	response.data = std::move(response_data);
