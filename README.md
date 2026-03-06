@@ -4,11 +4,30 @@
 
 ## 安装方法
 
-1. 从 [Releases 页面](https://github.com/Zarosmm/obs-bilibili-stream/releases) 下载最新的插件压缩包。
-2. 解压压缩包到 OBS Studio 的插件目录：
-    - Windows: `C:\ProgramData\obs-studio\plugins`
-    - 确保解压后的文件夹结构为：`C:\ProgramData\obs-studio\plugins\bilibili-stream-for-obs`
-3. 启动 OBS Studio，插件将自动加载。
+为了确保插件在 OBS Studio 中正确加载并兼容未来版本，请遵循 OBS 官方推荐的安装路径：
+
+1.  **下载插件**：从 [Releases 页面](https://github.com/Zarosmm/obs-bilibili-stream/releases) 下载最新的插件压缩包。
+2.  **解压文件**：将压缩包解压。
+3.  **放置目录**：将解压后的文件夹移动至以下路径：
+    `C:\ProgramData\obs-studio\plugins`
+4.  **校验结构**：请确保您的目录结构严格遵守以下格式（插件文件夹名称需与内部 `.dll` 文件名对应）：
+    ```text
+    C:\ProgramData\obs-studio\plugins\
+    └── bilibili-stream-for-obs\
+        ├── bin\
+        │   └── 64bit\
+        │       └── bilibili-stream-for-obs.dll
+        └── data\
+            └── locale\
+                └── (相关的 .ini 语言文件)
+    ```
+5.  **启动 OBS**：重新启动 OBS Studio，插件将自动加载。
+
+<div align="center">
+  <img width="785" height="916" alt="image" src="https://github.com/user-attachments/assets/bf0b35cb-b7ce-49d5-b783-41cbaffefd08" />
+  <p><i>OBS 官方插件安装路径说明</i></p>
+</div>
+
 
 ## 使用方法
 
