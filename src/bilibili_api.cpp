@@ -1,4 +1,4 @@
-#include "bilibili_api.hpp"
+﻿#include "bilibili_api.hpp"
 #include "http_client.hpp"
 #include "md5.hpp"
 #include <algorithm>
@@ -187,7 +187,7 @@ bool BiliApi::qrLogin(std::string &qr_key, std::string &cookies, std::string &me
 	return true;
 }
 
-bool BiliApi::checkLoginStatus(const std::string &cookies, std::string &message)
+bool BiliApi::checkLoginStatus(const std::string &cookies, std::string &message, std::string &mid)
 {
 	auto headers = buildHeaders(cookies);
 	auto response = Http::HttpClient::get("https://api.bilibili.com/x/web-interface/nav", headers);
@@ -209,6 +209,9 @@ bool BiliApi::checkLoginStatus(const std::string &cookies, std::string &message)
 	}
 
 	bool is_login = json["data"]["isLogin"].bool_value();
+	if (is_login) {
+		mid = std::to_string(static_cast<long long>(json["data"]["mid"].number_value()));
+	}
 	obs_log(LOG_INFO, "检查登录状态: %s", is_login ? "已登录" : "未登录");
 	message = "检查登录状态: " + std::string(is_login ? "已登录" : "未登录");
 	return is_login;
@@ -294,7 +297,7 @@ json11::Json BiliApi::getPartitionList(std::string &message)
 }
 
 bool BiliApi::startLive(Config &config, std::string &rtmp_addr, std::string &rtmp_code, std::string &message,
-			std::string &face_qr)
+			std::string &face_qr, std::string &mid)
 {
 	if (config.room_id.empty() || config.csrf_token.empty()) {
 		obs_log(LOG_ERROR, "配置无效: room_id=%s, csrf_token=%s, title=%s");
@@ -368,7 +371,14 @@ bool BiliApi::startLive(Config &config, std::string &rtmp_addr, std::string &rtm
 			std::string face_url = json["data"]["qr"].string_value();
 			obs_log(LOG_WARNING, "需要人脸识别，URL: %s", face_url.c_str());
 			// 这里可以弹出一个对话框或者在 UI 上显示二维码
-			message = "需要人脸验证，请扫描二维码 " + face_url;
+			message = "需要人脸验证，请扫描二维码" + face_url;
+			face_qr = face_url;
+			return false;
+		}
+		if (code == 60043) {
+			std::string face_url = "https://www.bilibili.com/blackboard/live/face-auth-middle.html?source_event=400&mid=" + mid;
+			obs_log(LOG_WARNING, "需要人脸识别，URL: %s", face_url.c_str());
+			message = "需要人脸验证，请扫描二维码" + face_url;
 			face_qr = face_url;
 			return false;
 		}

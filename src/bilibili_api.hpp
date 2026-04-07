@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <string>
 #include <vector>
 #include "json11/json11.hpp"
@@ -8,6 +8,7 @@ struct Config {
 	std::string room_id;
 	std::string csrf_token;
 	std::string cookies;
+	std::string mid;
 	std::string title;
 	bool login_status = false;
 	bool streaming = false;
@@ -24,12 +25,12 @@ public:
 	static bool getQrCode(const std::string &cookies, std::string &qr_data, std::string &qr_key,
 			      std::string &message);
 	static bool qrLogin(std::string &qr_key, std::string &cookies, std::string &message);
-	static bool checkLoginStatus(const std::string &cookies, std::string &message);
+	static bool checkLoginStatus(const std::string &cookies, std::string &message, std::string &mid);
 	static bool getRoomIdAndCsrf(const std::string &cookies, std::string &room_id, std::string &csrf_token,
 				     std::string &message);
 	static json11::Json getPartitionList(std::string &message);
 	static bool startLive(Config &config, std::string &rtmp_addr, std::string &rtmp_code, std::string &message,
-			      std::string &face_qr);
+			      std::string &face_qr, std::string &mid);
 	static bool stopLive(const Config &config, std::string &message);
 	static bool updateRoomInfo(const Config &config, const std::string &title, std::string &message);
 

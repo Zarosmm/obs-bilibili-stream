@@ -1,4 +1,4 @@
-#include <obs-data.h>
+﻿#include <obs-data.h>
 #include <obs-module.h>
 #include <obs-frontend-api.h>
 #include <QMainWindow>
@@ -95,6 +95,7 @@ private:
 			if (settings) {
 				config.room_id = obs_data_get_string(settings, "room_id");
 				config.csrf_token = obs_data_get_string(settings, "csrf_token");
+				config.mid = obs_data_get_string(settings, "mid");
 				config.cookies = obs_data_get_string(settings, "cookies");
 				config.title = obs_data_get_string(settings, "title");
 				config.rtmp_addr = obs_data_get_string(settings, "rtmp_addr");
@@ -103,7 +104,7 @@ private:
 				config.area_id = obs_data_get_int(settings, "area_id");
 				obs_data_release(settings);
 				if (!config.cookies.empty()) {
-					if (Bili::BiliApi::checkLoginStatus(config.cookies, message)) {
+					if (Bili::BiliApi::checkLoginStatus(config.cookies, message, config.mid)) {
 						config.login_status = true;
 						std::string new_room_id, new_csrf_token;
 						if (Bili::BiliApi::getRoomIdAndCsrf(config.cookies, new_room_id,
@@ -134,6 +135,7 @@ private:
 			obs_data_set_string(settings, "room_id", config.room_id.c_str());
 			obs_data_set_string(settings, "csrf_token", config.csrf_token.c_str());
 			obs_data_set_string(settings, "cookies", config.cookies.c_str());
+			obs_data_set_string(settings, "mid", config.mid.c_str());
 			obs_data_set_string(settings, "title", config.title.c_str());
 			obs_data_set_string(settings, "rtmp_addr", config.rtmp_addr.c_str());
 			obs_data_set_string(settings, "rtmp_code", config.rtmp_code.c_str());
@@ -216,7 +218,7 @@ public slots:
 			if (Bili::BiliApi::qrLogin(qr_key, cookies, message)) {
 				timer->stop();
 				config.cookies = cookies;
-				config.login_status = Bili::BiliApi::checkLoginStatus(config.cookies, message);
+				config.login_status = Bili::BiliApi::checkLoginStatus(config.cookies, message, config.mid);
 				onLoginStatusTriggered();
 				std::string new_room_id, new_csrf_token;
 				if (Bili::BiliApi::getRoomIdAndCsrf(config.cookies, new_room_id, new_csrf_token,
@@ -256,7 +258,7 @@ public slots:
 			showMessageDialog("请更新直播间分区", "消息");
 		} else {
 			std::string rtmp_addr, rtmp_code, face_qr;
-			if (Bili::BiliApi::startLive(config, rtmp_addr, rtmp_code, message, face_qr)) {
+			if (Bili::BiliApi::startLive(config, rtmp_addr, rtmp_code, message, face_qr, config.mid)) {
 				streamAction->setText("停止直播");
 				config.streaming = true;
 				config.rtmp_addr = rtmp_addr;
