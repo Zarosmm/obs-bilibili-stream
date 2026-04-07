@@ -1,0 +1,28 @@
+name: Dev Dispatch
+run-name: Dev Branch Actions - ${{ inputs.job }} ⌛️
+on:
+  workflow_dispatch:
+    inputs:
+      job:
+        description: Job to run
+        required: true
+        type: choice
+        options:
+          - build
+          - check-format
+permissions:
+  contents: write
+jobs:
+  check-format:
+    if: inputs.job == 'check-format'
+    name: Check Formatting 🔍
+    uses: ./.github/workflows/check-format.yaml
+    permissions:
+      contents: read
+
+  check-and-build:
+    if: inputs.job == 'build'
+    uses: ./.github/workflows/build-project.yaml
+    secrets: inherit
+    permissions:
+      contents: read
