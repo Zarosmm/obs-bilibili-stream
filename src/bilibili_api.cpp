@@ -254,8 +254,8 @@ bool BiliApi::getRoomIdAndCsrf(const std::string &cookies, std::string &room_id,
 		return false;
 	}
 	if (json["code"].int_value() != 0) {
-		obs_log(LOG_ERROR, "API 返回错误，code: %d, message: %s");
-		//json["code"].int_value(), json["message"].string_value().c_str());
+		obs_log(LOG_ERROR, "API 返回错误，code: %d, message: %s", json["code"].int_value(),
+			json["message"].string_value().c_str());
 		message = "API 返回错误， code: " + std::to_string(json["code"].int_value()) +
 			  ", message: " + json["message"].string_value();
 		return false;
@@ -300,18 +300,15 @@ bool BiliApi::startLive(Config &config, std::string &rtmp_addr, std::string &rtm
 			std::string &face_qr, std::string &mid)
 {
 	if (config.room_id.empty() || config.csrf_token.empty()) {
-		obs_log(LOG_ERROR, "配置无效: room_id=%s, csrf_token=%s, title=%s");
-		//config.room_id.c_str(), config.csrf_token.c_str(), config.title.c_str());
+		obs_log(LOG_ERROR, "配置无效: room_id=%s, csrf_token=%s, title=%s",
+			config.room_id.c_str(), config.csrf_token.c_str(), config.title.c_str());
 		message = "配置无效: 房间号=" + config.room_id + ", csrf_token=" + config.csrf_token;
 		return false;
 	}
 
-	const std::string app_key = "aae92bc66f3edfab";
-	const std::string app_sec = "af125a0d5279fd576c1b4418a3e8276d";
-
 	std::vector<std::pair<std::string, std::string>> version_params = {{"system_version", "2"},
 									   {"ts", std::to_string(time(nullptr))}};
-	std::string version_query = appsign(version_params, app_key, app_sec);
+	std::string version_query = appsign(version_params, APP_KEY, APP_SECRET);
 	std::string version_url =
 		"https://api.live.bilibili.com/xlive/app-blink/v1/liveVersionInfo/getHomePageLiveVersion?" +
 		version_query;
@@ -350,7 +347,7 @@ bool BiliApi::startLive(Config &config, std::string &rtmp_addr, std::string &rtm
 									 {"build", std::to_string(build)},
 									 {"version", curr_version},
 									 {"ts", std::to_string(time(nullptr))}};
-	std::string start_data = appsign(start_params, app_key, app_sec);
+	std::string start_data = appsign(start_params, APP_KEY, APP_SECRET);
 
 	auto response =
 		Http::HttpClient::post("https://api.live.bilibili.com/room/v1/Room/startLive", start_data, headers);
@@ -405,10 +402,6 @@ bool BiliApi::stopLive(const Config &config, std::string &message)
 	obs_log(LOG_INFO, "停止直播: %s", response.data.c_str());
 	if (response.status != 200) {
 		message = "停止直播失败，状态码: " + std::to_string(response.status);
-		return false;
-	}
-	if (response.status != 200) {
-		message = "获取二维码失败，状态码: " + std::to_string(response.status);
 		if (!response.data.empty()) {
 			message += ", 数据: " + response.data;
 		}

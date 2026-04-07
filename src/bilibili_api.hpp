@@ -4,6 +4,11 @@
 #include "json11/json11.hpp"
 
 namespace Bili {
+namespace {
+const std::string APP_KEY = "aae92bc66f3edfab";
+const std::string APP_SECRET = "af125a0d5279fd576c1b4418a3e8276d";
+}
+
 struct Config {
 	std::string room_id;
 	std::string csrf_token;
