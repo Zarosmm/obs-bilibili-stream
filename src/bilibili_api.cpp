@@ -360,13 +360,14 @@ bool BiliApi::startLive(Config &config, std::string &rtmp_addr, std::string &rtm
 
 	json = json11::Json::parse(response.data, err);
 	int code = json["code"].int_value();
+	obs_log(LOG_INFO, "开始直播，mid: %s", mid.c_str());
 	if (code != 0) {
 		message = json["message"].string_value();
 
 		// 如果是人脸识别
 		if (code == 60024) {
 			std::string face_url = json["data"]["qr"].string_value();
-			obs_log(LOG_WARNING, "需要人脸识别，URL: %s", face_url.c_str());
+			obs_log(LOG_WARNING, "60024 需要人脸识别，URL: %s", face_url.c_str());
 			// 这里可以弹出一个对话框或者在 UI 上显示二维码
 			message = "需要人脸验证，请扫描二维码" + face_url;
 			face_qr = face_url;
@@ -374,7 +375,7 @@ bool BiliApi::startLive(Config &config, std::string &rtmp_addr, std::string &rtm
 		}
 		if (code == 60043) {
 			std::string face_url = "https://www.bilibili.com/blackboard/live/face-auth-middle.html?source_event=400&mid=" + mid;
-			obs_log(LOG_WARNING, "需要人脸识别，URL: %s", face_url.c_str());
+			obs_log(LOG_WARNING, "60043 需要人脸识别，URL: %s", face_url.c_str());
 			message = "需要人脸验证，请扫描二维码" + face_url;
 			face_qr = face_url;
 			return false;
