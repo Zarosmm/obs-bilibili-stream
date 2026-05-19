@@ -181,6 +181,7 @@ static BilibiliStreamPlugin *plugin = nullptr;
 
 bool obs_module_load(void)
 {
+	obs_log(LOG_INFO, "插件版本: %s, commit: %s", PLUGIN_VERSION, PLUGIN_COMMIT);
 	Bili::BiliApi::init();
 	auto mainWindow = static_cast<QMainWindow *>(obs_frontend_get_main_window());
 	if (!mainWindow)

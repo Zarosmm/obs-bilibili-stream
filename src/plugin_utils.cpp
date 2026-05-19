@@ -3,8 +3,9 @@
 #include <cstdarg>
 #include <string>
 
-const char *PLUGIN_NAME = "@CMAKE_PROJECT_NAME@";
-const char *PLUGIN_VERSION = "@CMAKE_PROJECT_VERSION@";
+const char *PLUGIN_NAME = "obs-bilibili-stream";
+const char *PLUGIN_VERSION = PLUGIN_VERSION_STR;
+const char *PLUGIN_COMMIT = GIT_COMMIT_HASH;
 
 void obs_log(int log_level, const char *format, ...)
 {

@@ -13,6 +13,17 @@ include(helpers)
 
 configure_file(src/plugin-support.c.in src/plugin-support.c @ONLY)
 
+execute_process(
+  COMMAND git rev-parse --short HEAD
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  OUTPUT_VARIABLE GIT_COMMIT_HASH
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+  ERROR_QUIET
+)
+if(NOT GIT_COMMIT_HASH)
+  set(GIT_COMMIT_HASH "unknown")
+endif()
+
 add_library(${CMAKE_PROJECT_NAME} MODULE
         src/bilibili_api.hpp
         src/http_client.hpp
@@ -63,6 +74,11 @@ if(ENABLE_QT)
 endif()
 
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/plugin-main.cpp)
+
+target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
+    "PLUGIN_VERSION_STR=\"${_version}\""
+    "GIT_COMMIT_HASH=\"${GIT_COMMIT_HASH}\""
+)
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})
 
