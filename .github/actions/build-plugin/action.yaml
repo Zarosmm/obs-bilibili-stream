@@ -43,6 +43,7 @@ runs:
 
         if [[ '${{ inputs.codesign }}' == 'true' ]] build_args+=(--codesign)
 
+        if [[ '${{ inputs.target }}' != 'macos-universal' ]] build_args+=(--target '${{ inputs.target }}')
         .github/scripts/build-macos ${build_args}
 
     - name: Install Dependencies 🛍️

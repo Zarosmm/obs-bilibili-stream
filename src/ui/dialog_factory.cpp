@@ -219,7 +219,6 @@ QDialog *DialogFactory::roomSettings(QWidget *parent, const std::string &roomUrl
 		if (!newTitle.empty() && onApply) {
 			onApply(newTitle, areaCombo->currentData().toInt(), partCombo->currentData().toInt());
 		}
-		dialog->accept();
 	});
 
 	QObject::connect(confirmPartition, &QPushButton::clicked, [=]() {
@@ -227,8 +226,11 @@ QDialog *DialogFactory::roomSettings(QWidget *parent, const std::string &roomUrl
 			onApply(titleInput->text().trimmed().toUtf8().constData(), areaCombo->currentData().toInt(),
 				partCombo->currentData().toInt());
 		}
-		dialog->accept();
 	});
+
+	QPushButton *closeBtn = new QPushButton("关闭");
+	layout->addWidget(closeBtn);
+	QObject::connect(closeBtn, &QPushButton::clicked, dialog, &QDialog::accept);
 
 	QObject::connect(dialog, &QDialog::finished, dialog, &QDialog::deleteLater);
 	dialog->exec();

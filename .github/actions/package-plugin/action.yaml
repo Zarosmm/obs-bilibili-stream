@@ -66,6 +66,7 @@ runs:
         if [[ '${{ inputs.codesign }}' == 'true' ]] package_args+=(--codesign)
         if [[ '${{ inputs.notarize }}' == 'true' ]] package_args+=(--notarize)
         if [[ '${{ inputs.package }}' == 'true' ]] package_args+=(--package)
+        if [[ '${{ inputs.target }}' != 'macos-universal' ]] package_args+=(--target '${{ inputs.target }}')
 
         .github/scripts/package-macos ${package_args}
 

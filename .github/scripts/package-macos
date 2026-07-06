@@ -59,11 +59,16 @@ package() {
   local -i codesign=0
   local -i notarize=0
   local -i package=0
+  local target='macos-universal'
+  local -r -a _valid_targets=(
+    macos-universal
+    macos-x86_64
+  )
 
   local -a args
   while (( # )) {
     case ${1} {
-      -c|--config)
+      -c|--config|-t|--target)
         if (( # == 1 )) || [[ ${2:0:1} == '-' ]] {
           log_error "Missing value for option %B${1}%b"
           exit 2
@@ -78,6 +83,14 @@ package() {
           exit 2
         }
         config=${2}
+        shift 2
+        ;;
+      -t|--target)
+        if (( ! ${_valid_targets[(Ie)${2}]} )) {
+          log_error "Invalid value %B${2}%b for option %B${1}%b"
+          exit 2
+        }
+        target=${2}
         shift 2
         ;;
       -s|--codesign) typeset -g codesign=1; shift ;;
@@ -97,7 +110,7 @@ package() {
   read -r product_name product_version <<< \
     "$(jq -r '. | {name, version} | join(" ")' ${buildspec_file})"
 
-  local output_name="${product_name}-${product_version}-${host_os}-universal"
+  local output_name="${product_name}-${product_version}-${host_os}-${target##*-}"
 
   if [[ ! -d ${project_root}/release/${config}/${product_name}.plugin ]] {
     log_error 'No release artifact found. Run the build script or the CMake install procedure first.'

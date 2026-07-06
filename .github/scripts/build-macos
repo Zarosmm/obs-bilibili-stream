@@ -56,11 +56,16 @@ build() {
   local config='RelWithDebInfo'
   local -r -a _valid_configs=(Debug RelWithDebInfo Release MinSizeRel)
   local -i codesign=0
+  local target='macos-universal'
+  local -r -a _valid_targets=(
+    macos-universal
+    macos-x86_64
+  )
 
   local -a args
   while (( # )) {
     case ${1} {
-      -c|--config)
+      -c|--config|-t|--target)
         if (( # == 1 )) || [[ ${2:0:1} == '-' ]] {
           log_error "Missing value for option %B${1}%b"
           log_output ${_usage}
@@ -76,6 +81,14 @@ build() {
           exit 2
         }
         config=${2}
+        shift 2
+        ;;
+      -t|--target)
+        if (( ! ${_valid_targets[(Ie)${2}]} )) {
+          log_error "Invalid value %B${2}%b for option %B${1}%b"
+          exit 2
+        }
+        target=${2}
         shift 2
         ;;
       -s|--codesign) codesign=1; shift ;;
@@ -101,7 +114,22 @@ build() {
 
   if (( debug )) cmake_args+=(--debug-output)
 
-  cmake_args+=(--preset 'macos-ci')
+  local preset
+  local build_dir
+  local -a archs=()
+  case ${target} {
+    macos-universal)
+      preset='macos-ci'
+      build_dir='build_macos'
+      archs=(-arch arm64 -arch x86_64)
+      ;;
+    macos-x86_64)
+      preset='macos-ci-x86_64'
+      build_dir='build_macos_x86_64'
+      archs=(-arch x86_64)
+      ;;
+  }
+  cmake_args+=(--preset ${preset})
 
   typeset -gx NSUnbufferedIO=YES
 
@@ -128,8 +156,7 @@ build() {
 
   local -a build_args=(
     ONLY_ACTIVE_ARCH=NO
-    -arch arm64
-    -arch x86_64
+    ${archs}
     -project ${product_name}.xcodeproj
     -target ${product_name}
     -destination "generic/platform=macOS,name=Any Mac"
@@ -139,12 +166,12 @@ build() {
     build
   )
 
-  pushd build_macos
+  pushd ${build_dir}
   run_xcodebuild ${build_args}
   popd
 
   log_group "Installing ${product_name}..."
-  cmake --install build_macos --config ${config} --prefix "${project_root}/release/${config}"
+  cmake --install ${build_dir} --config ${config} --prefix "${project_root}/release/${config}"
 
   popd
   log_group
