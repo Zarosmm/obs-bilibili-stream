@@ -1,5 +1,6 @@
 #include "core/config_manager.hpp"
 #include <obs-module.h>
+#include <filesystem>
 
 namespace Core {
 ConfigManager::ConfigManager() {}
@@ -62,6 +63,8 @@ void ConfigManager::save()
 	obs_data_set_string(settings, "rtmp_code", m_config.rtmp_code.c_str());
 	obs_data_set_int(settings, "part_id", m_config.part_id);
 	obs_data_set_int(settings, "area_id", m_config.area_id);
+	std::error_code ec;
+	std::filesystem::create_directories(std::filesystem::path(configFile).parent_path(), ec);
 	if (!obs_data_save_json(settings, configFile)) {
 		blog(LOG_WARNING, "[obs-bilibili-stream] 配置保存失败: %s", configFile);
 	}
