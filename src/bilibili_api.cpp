@@ -153,27 +153,40 @@ bool BiliApi::qrLogin(std::string &qr_key, std::string &cookies, std::string &me
 	if (cookies.empty()) {
 		std::string loginUrl = json["data"]["url"].string_value();
 		if (!loginUrl.empty()) {
-			obs_log(LOG_INFO, "从 URL 解析 Cookies...");
+			// bilibili changed the login flow (2026-08): the success URL is now
+			// a crossDomain ticket URL (passport.biligame.com/x/passport-login/
+			// web/crossDomain?ticket=...&gourl=...&first_domain=...) which no
+			// longer embeds SESSDATA/bili_jct/DedeUserID. Following it sets the
+			// login cookies via Set-Cookie response headers (the HTTP client
+			// captures those but does not follow the redirect itself).
+			obs_log(LOG_INFO, "从 crossDomain 跳转 URL 获取 Cookies...");
+			auto ticketResp = Http::HttpClient::get(loginUrl, default_headers);
+			if (!ticketResp.cookies.empty()) {
+				cookies = ticketResp.cookies;
+				obs_log(LOG_INFO, "crossDomain Cookies 获取成功");
+			} else {
+				obs_log(LOG_INFO, "从 URL 解析 Cookies...");
 
-			auto extractParam = [&](const std::string &key) -> std::string {
-				std::string search = key + "=";
-				size_t start = loginUrl.find(search);
-				if (start == std::string::npos)
-					return "";
-				start += search.length();
-				size_t end = loginUrl.find("&", start);
-				if (end == std::string::npos)
-					end = loginUrl.length();
-				return loginUrl.substr(start, end - start);
-			};
+				auto extractParam = [&](const std::string &key) -> std::string {
+					std::string search = key + "=";
+					size_t start = loginUrl.find(search);
+					if (start == std::string::npos)
+						return "";
+					start += search.length();
+					size_t end = loginUrl.find("&", start);
+					if (end == std::string::npos)
+						end = loginUrl.length();
+					return loginUrl.substr(start, end - start);
+				};
 
-			std::string sessData = extractParam("SESSDATA");
-			std::string biliJct = extractParam("bili_jct"); // 即 csrf
-			std::string dedeUserId = extractParam("DedeUserID");
+				std::string sessData = extractParam("SESSDATA");
+				std::string biliJct = extractParam("bili_jct"); // 即 csrf
+				std::string dedeUserId = extractParam("DedeUserID");
 
-			if (!sessData.empty() && !biliJct.empty()) {
-				cookies = "SESSDATA=" + sessData + "; bili_jct=" + biliJct +
-					  "; DedeUserID=" + dedeUserId + ";";
+				if (!sessData.empty() && !biliJct.empty()) {
+					cookies = "SESSDATA=" + sessData + "; bili_jct=" + biliJct +
+						  "; DedeUserID=" + dedeUserId + ";";
+				}
 			}
 		}
 	}
