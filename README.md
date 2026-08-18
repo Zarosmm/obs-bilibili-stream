@@ -96,4 +96,4 @@
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=Zarosmm/obs-bilibili-stream&type=date&legend=top-left)](https://www.star-history.com/#Zarosmm/obs-bilibili-stream&type=date&legend=top-left)
+[![Star History Chart](https://star-history.dera.page/svg?repos=Zarosmm/obs-bilibili-stream&type=date&legend=top-left)](https://star-history.dera.page/#Zarosmm/obs-bilibili-stream&type=date&legend=top-left)
