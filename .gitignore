@@ -13,6 +13,9 @@
 !buildspec.json
 !CMakeLists.txt
 !CMakePresets.json
+!com.obsproject.Studio.Plugin.BilibiliStream.metainfo.xml
+!com.obsproject.Studio.Plugin.BilibiliStream.yaml
+!flathub.json
 !LICENSE
 !README.md
 

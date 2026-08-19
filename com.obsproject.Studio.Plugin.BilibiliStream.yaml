@@ -1,0 +1,40 @@
+id: com.obsproject.Studio.Plugin.BilibiliStream
+branch: stable
+runtime: com.obsproject.Studio
+runtime-version: stable
+sdk: org.freedesktop.Sdk//25.08
+build-extension: true
+separate-locales: false
+build-options:
+  prefix: /app/plugins/BilibiliStream
+
+modules:
+  - name: bilibili-stream-for-obs
+    buildsystem: cmake-ninja
+    builddir: true
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DCMAKE_INSTALL_LIBDIR=lib
+      - -DENABLE_FRONTEND_API=ON
+      - -DENABLE_QT=ON
+    sources:
+      - type: dir
+        path: .
+        skip:
+          - .codegraph
+          - .flatpak-builder
+          - .git
+          - .omo
+          - build-flatpak
+          - flatpak-repo
+          - release
+    post-install:
+      - rm -rf ${FLATPAK_DEST}/obs-plugins
+
+  - name: appstream
+    buildsystem: simple
+    build-commands:
+      - install -Dm644 --target-directory=${FLATPAK_DEST}/share/metainfo ${FLATPAK_ID}.metainfo.xml
+    sources:
+      - type: file
+        path: com.obsproject.Studio.Plugin.BilibiliStream.metainfo.xml
