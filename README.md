@@ -55,7 +55,7 @@
 
 ### Fedora/openSUSE（非官方）
 
-1.  **下载插件**：从 [OpenSUSE Build Service](https://build.opensuse.org/package/show/home:whoaml/obs-bilibili-stream) 下载最新的 `.rpm` 包（例如 `obs-bilibili-stream-2.1.3-5.1.x86_64.rpm）。
+1.  **下载插件**：从 [openSUSE Build Service](https://build.opensuse.org/package/show/home:whoaml/obs-bilibili-stream) 下载最新的 `.rpm` 包（例如 `obs-bilibili-stream-2.1.3-5.1.x86_64.rpm）。
 2.  **安装插件**：运行以下命令：
     ```bash
     sudo rpm -i obs-bilibili-stream-*.rpm
