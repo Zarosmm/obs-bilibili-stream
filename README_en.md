@@ -46,6 +46,18 @@ The plugin will be installed to `/Library/Application Support/obs-studio/plugins
 
 The plugin will be installed to `/usr/lib/obs-plugins/` directory.
 
+### Fedora/openSUSE（Unoffical）
+
+1.  **Download plugin**： Download the latest '.rpm' packages（e.g., `obs-bilibili-stream-2.1.3-5.1.x86_64.rpm）from the [openSUSE Build Service](https://build.opensuse.org/package/show/home:whoaml/obs-bilibili-stream).
+2.  **Install plugin**：Run the following command：
+    ```bash
+    sudo rpm -i obs-bilibili-stream-*.rpm
+    ```
+3.  **Launch OBS**: Restart OBS Studio, the plugin will load automatically.
+
+The plugin will be installed to `/usr/lib/obs-plugins/` directory.
+
+
 ## Usage
 
 1. **Login to Bilibili**:
