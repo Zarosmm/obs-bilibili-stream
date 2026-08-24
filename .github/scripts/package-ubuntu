@@ -177,6 +177,11 @@ ${_usage_host:-}"
     local _tarflags='cJf'
     if (( _loglevel > 1 || ${+CI} )) _tarflags="v${_tarflags}"
 
+    # The package_source step above ran under sudo, so CPack created
+    # release/ as root; hand it back to the runner user, otherwise the
+    # archive below fails with "Cannot open: Permission denied".
+    sudo chown -R "$(id -u):$(id -g)" ${project_root}/release
+
     pushd ${project_root}/release/${config}
     XZ_OPT=-T0 tar "-${_tarflags}" ${project_root}/release/${output_name}.tar.xz (lib|share)
     popd
