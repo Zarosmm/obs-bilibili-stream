@@ -6,6 +6,11 @@
 
 ## 安装方法
 
+<div align="center">
+  <img width="785" height="916" alt="image" src="https://github.com/user-attachments/assets/bf0b35cb-b7ce-49d5-b783-41cbaffefd08" />
+  <p><i>OBS 官方插件安装路径说明</i></p>
+</div>
+
 ### Windows
 
 1.  **下载插件**：从 [Releases 页面](https://github.com/Zarosmm/obs-bilibili-stream/releases) 下载最新的 `bilibili-stream-for-obs-*-windows-x64.zip`。
@@ -24,11 +29,6 @@
                 └── (相关的 .ini 语言文件)
     ```
 5.  **启动 OBS**：重新启动 OBS Studio，插件将自动加载。
-
-<div align="center">
-  <img width="785" height="916" alt="image" src="https://github.com/user-attachments/assets/bf0b35cb-b7ce-49d5-b783-41cbaffefd08" />
-  <p><i>OBS 官方插件安装路径说明</i></p>
-</div>
 
 ### macOS
 
