@@ -58,8 +58,14 @@ static void workerLoop()
 	while (true) {
 		std::unique_lock<std::mutex> lock(queue_mutex);
 		queue_cv.wait(lock, [] { return !async_queue.empty() || stop_worker; });
-		if (stop_worker && async_queue.empty())
+		if (stop_worker) {
+			// Shutting down: drop queued requests and exit. Draining them
+			// here could block module unload for the full timeout of every
+			// pending request.
+			while (!async_queue.empty())
+				async_queue.pop();
 			break;
+		}
 		AsyncRequest req = async_queue.front();
 		async_queue.pop();
 		lock.unlock();
@@ -70,12 +76,19 @@ static void workerLoop()
 		} else {
 			response = HttpClient::get(req.url, req.headers, req.timeout_ms);
 		}
+		lock.lock();
+		bool stale = stop_worker;
+		lock.unlock();
+		if (stale)
+			break; // unload in progress: skip callbacks that may touch destroyed state
 		req.callback(response);
 	}
 }
 
 void HttpClient::init()
 {
+	if (worker_thread.joinable())
+		return;
 	curl_global_init(CURL_GLOBAL_ALL);
 	stop_worker = false;
 	worker_thread = std::thread(workerLoop);
@@ -88,9 +101,11 @@ void HttpClient::cleanup()
 		stop_worker = true;
 	}
 	queue_cv.notify_all();
+	// Never block OBS shutdown: the worker exits by itself once the request
+	// in flight (if any) returns. curl_global_cleanup() is skipped for the
+	// same reason; it is optional at process exit.
 	if (worker_thread.joinable())
-		worker_thread.join();
-	curl_global_cleanup();
+		worker_thread.detach();
 }
 
 HttpResponse HttpClient::get(const std::string &url, const std::vector<std::string> &headers, long timeout_ms)
@@ -137,8 +152,8 @@ HttpResponse HttpClient::get(const std::string &url, const std::vector<std::stri
 	return response;
 }
 
-HttpResponse HttpClient::post(const std::string &url, const std::string &data,
-			      const std::vector<std::string> &headers, long timeout_ms)
+HttpResponse HttpClient::post(const std::string &url, const std::string &data, const std::vector<std::string> &headers,
+			      long timeout_ms)
 {
 	HttpResponse response;
 	response.status = 0;
@@ -194,9 +209,8 @@ void HttpClient::getAsync(const std::string &url, const std::vector<std::string>
 	queue_cv.notify_one();
 }
 
-void HttpClient::postAsync(const std::string &url, const std::string &data,
-			   const std::vector<std::string> &headers, std::function<void(HttpResponse)> callback,
-			   long timeout_ms)
+void HttpClient::postAsync(const std::string &url, const std::string &data, const std::vector<std::string> &headers,
+			   std::function<void(HttpResponse)> callback, long timeout_ms)
 {
 	{
 		std::lock_guard<std::mutex> lock(queue_mutex);
