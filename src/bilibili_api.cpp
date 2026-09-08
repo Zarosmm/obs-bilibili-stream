@@ -1,6 +1,7 @@
 ﻿#include "bilibili_api.hpp"
 #include "http_client.hpp"
 #include "md5.hpp"
+#include <curl/curl.h>
 #include <algorithm>
 #include <sstream>
 #include <iostream>
@@ -435,10 +436,25 @@ bool BiliApi::stopLive(const Config &config, std::string &message)
 	return true;
 }
 
-bool BiliApi::updateRoomInfo(const Config &config, const std::string &title, std::string &message)
+bool BiliApi::updateRoomInfo(const Config &config, std::string &message, const std::string &title, int areaId)
 {
-	std::string data = "room_id=" + config.room_id + "&platform=pc_link&title=" + title +
-			   "&csrf_token=" + config.csrf_token + "&csrf=" + config.csrf_token;
+	if (title.empty() && areaId < 0) {
+		message = "无可更新内容";
+		return false;
+	}
+
+	std::string data = "room_id=" + config.room_id + "&platform=pc_link";
+	if (!title.empty()) {
+		char *escaped = curl_easy_escape(nullptr, title.c_str(), 0);
+		data += "&title=";
+		data += escaped ? escaped : title;
+		if (escaped)
+			curl_free(escaped);
+	}
+	if (areaId >= 0) {
+		data += "&area_id=" + std::to_string(areaId);
+	}
+	data += "&csrf_token=" + config.csrf_token + "&csrf=" + config.csrf_token;
 	auto headers = buildHeaders(config.cookies);
 	auto response = Http::HttpClient::post("https://api.live.bilibili.com/room/v1/Room/update", data, headers);
 	obs_log(LOG_INFO, "更新房间信息: %s", response.data.c_str());

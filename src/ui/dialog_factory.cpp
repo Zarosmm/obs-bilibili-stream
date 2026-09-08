@@ -145,7 +145,8 @@ QDialog *DialogFactory::faceAuth(QWidget *parent, const std::string &faceUrl)
 
 QDialog *DialogFactory::roomSettings(QWidget *parent, const std::string &roomUrl, const std::string &currentTitle,
 				    int currentAreaId, int currentPartId,
-				    std::function<void(const std::string &title, int areaId, int partId)> onApply)
+				    std::function<void(const std::string &title)> onTitleApply,
+				    std::function<void(int areaId, int partId)> onPartitionApply)
 {
 	QDialog *dialog = createBaseDialog("更新直播间信息", parent);
 	QVBoxLayout *layout = (QVBoxLayout *)dialog->layout();
@@ -216,15 +217,14 @@ QDialog *DialogFactory::roomSettings(QWidget *parent, const std::string &roomUrl
 
 	QObject::connect(confirmTitle, &QPushButton::clicked, [=]() {
 		std::string newTitle = titleInput->text().trimmed().toUtf8().constData();
-		if (!newTitle.empty() && onApply) {
-			onApply(newTitle, areaCombo->currentData().toInt(), partCombo->currentData().toInt());
+		if (!newTitle.empty() && onTitleApply) {
+			onTitleApply(newTitle);
 		}
 	});
 
 	QObject::connect(confirmPartition, &QPushButton::clicked, [=]() {
-		if (onApply) {
-			onApply(titleInput->text().trimmed().toUtf8().constData(), areaCombo->currentData().toInt(),
-				partCombo->currentData().toInt());
+		if (onPartitionApply) {
+			onPartitionApply(areaCombo->currentData().toInt(), partCombo->currentData().toInt());
 		}
 	});
 

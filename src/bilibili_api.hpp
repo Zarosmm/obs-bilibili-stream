@@ -37,7 +37,8 @@ public:
 	static bool startLive(Config &config, std::string &rtmp_addr, std::string &rtmp_code, std::string &message,
 			      std::string &face_qr, std::string &mid);
 	static bool stopLive(const Config &config, std::string &message);
-	static bool updateRoomInfo(const Config &config, const std::string &title, std::string &message);
+	static bool updateRoomInfo(const Config &config, std::string &message, const std::string &title = "",
+				   int areaId = -1);
 
 private:
 	static std::vector<std::string> buildHeaders(const std::string &cookies);
