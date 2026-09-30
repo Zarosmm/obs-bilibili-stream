@@ -9,6 +9,16 @@
 #include "util/base.h"
 
 namespace Bili {
+// Bilibili puts the human readable error text in either "message" or "msg"
+// depending on the endpoint. Accept both instead of showing an empty dialog.
+static std::string jsonErrorMessage(const json11::Json &json)
+{
+	std::string message = json["message"].string_value();
+	if (message.empty())
+		message = json["msg"].string_value();
+	return message;
+}
+
 static const std::vector<std::string> default_headers = {
 	"Accept: application/json, text/plain, */*",
 	"Accept-Language: zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
@@ -268,10 +278,9 @@ bool BiliApi::getRoomIdAndCsrf(const std::string &cookies, std::string &room_id,
 		return false;
 	}
 	if (json["code"].int_value() != 0) {
-		obs_log(LOG_ERROR, "API 返回错误，code: %d, message: %s", json["code"].int_value(),
-			json["message"].string_value().c_str());
-		message = "API 返回错误， code: " + std::to_string(json["code"].int_value()) +
-			  ", message: " + json["message"].string_value();
+		const std::string detail = jsonErrorMessage(json);
+		obs_log(LOG_ERROR, "API 返回错误，code: %d, message: %s", json["code"].int_value(), detail.c_str());
+		message = "API 返回错误， code: " + std::to_string(json["code"].int_value()) + ", message: " + detail;
 		return false;
 	}
 
@@ -314,8 +323,8 @@ bool BiliApi::startLive(Config &config, std::string &rtmp_addr, std::string &rtm
 			std::string &face_qr, std::string &mid)
 {
 	if (config.room_id.empty() || config.csrf_token.empty()) {
-		obs_log(LOG_ERROR, "配置无效: room_id=%s, csrf_token=%s, title=%s",
-			config.room_id.c_str(), config.csrf_token.c_str(), config.title.c_str());
+		obs_log(LOG_ERROR, "配置无效: room_id=%s, csrf_token=%s, title=%s", config.room_id.c_str(),
+			config.csrf_token.c_str(), config.title.c_str());
 		message = "配置无效: 房间号=" + config.room_id + ", csrf_token=" + config.csrf_token;
 		return false;
 	}
@@ -339,8 +348,9 @@ bool BiliApi::startLive(Config &config, std::string &rtmp_addr, std::string &rtm
 	std::string err;
 	json11::Json json = json11::Json::parse(version_response.data, err);
 	if (!err.empty() || json["code"].int_value() != 0) {
-		obs_log(LOG_ERROR, "获取直播版本信息失败: %s", err.c_str());
-		message = "解析直播版本信息失败: " + (err.empty() ? json["message"].string_value() : err);
+		const std::string detail = err.empty() ? jsonErrorMessage(json) : err;
+		obs_log(LOG_ERROR, "获取直播版本信息失败: %s", detail.c_str());
+		message = "解析直播版本信息失败: " + detail;
 		return false;
 	}
 
@@ -373,10 +383,18 @@ bool BiliApi::startLive(Config &config, std::string &rtmp_addr, std::string &rtm
 	}
 
 	json = json11::Json::parse(response.data, err);
+	if (!err.empty()) {
+		obs_log(LOG_ERROR, "解析开播响应失败: %s", err.c_str());
+		message = "解析开播响应失败: " + err;
+		return false;
+	}
+
 	int code = json["code"].int_value();
 	obs_log(LOG_INFO, "开始直播，mid: %s", mid.c_str());
 	if (code != 0) {
-		message = json["message"].string_value();
+		message = jsonErrorMessage(json);
+		if (message.empty())
+			message = "开播失败，错误码: " + std::to_string(code);
 
 		// 如果是人脸识别
 		if (code == 60024) {
@@ -388,7 +406,9 @@ bool BiliApi::startLive(Config &config, std::string &rtmp_addr, std::string &rtm
 			return false;
 		}
 		if (code == 60043) {
-			std::string face_url = "https://www.bilibili.com/blackboard/live/face-auth-middle.html?source_event=400&mid=" + mid;
+			std::string face_url =
+				"https://www.bilibili.com/blackboard/live/face-auth-middle.html?source_event=400&mid=" +
+				mid;
 			obs_log(LOG_WARNING, "60043 需要人脸识别，URL: %s", face_url.c_str());
 			message = "需要人脸验证，请扫描二维码" + face_url;
 			face_qr = face_url;
@@ -400,7 +420,8 @@ bool BiliApi::startLive(Config &config, std::string &rtmp_addr, std::string &rtm
 	rtmp_addr = json["data"]["rtmp"]["addr"].string_value();
 	rtmp_code = json["data"]["rtmp"]["code"].string_value();
 	if (rtmp_addr.empty() || rtmp_code.empty()) {
-		//obs_log(LOG_ERROR, "无法解析 RTMP 地址或推流码");
+		obs_log(LOG_ERROR, "无法解析 RTMP 地址或推流码");
+		message = "开播请求成功，但未获取到推流地址，请稍后重试";
 		return false;
 	}
 
@@ -426,9 +447,9 @@ bool BiliApi::stopLive(const Config &config, std::string &message)
 	std::string err;
 	json11::Json json = json11::Json::parse(response.data, err);
 	if (!err.empty() || json["code"].int_value() != 0) {
-		obs_log(LOG_ERROR, "停止直播失败: %s",
-			err.empty() ? json["message"].string_value().c_str() : err.c_str());
-		message = "停止直播失败: " + (err.empty() ? json["message"].string_value() : err);
+		const std::string detail = err.empty() ? jsonErrorMessage(json) : err;
+		obs_log(LOG_ERROR, "停止直播失败: %s", detail.c_str());
+		message = "停止直播失败: " + detail;
 		return false;
 	}
 
@@ -470,8 +491,7 @@ bool BiliApi::updateRoomInfo(const Config &config, std::string &message, const s
 	std::string err;
 	json11::Json json = json11::Json::parse(response.data, err);
 	if (!err.empty() || json["code"].int_value() != 0) {
-		//obs_log(LOG_ERROR, "更新直播间信息失败: %s", err.empty() ? json["message"].string_value().c_str() : err.c_str());
-		message = "更新直播间信息失败: " + (err.empty() ? json["message"].string_value() : err);
+		message = "更新直播间信息失败: " + (err.empty() ? jsonErrorMessage(json) : err);
 		return false;
 	}
 
