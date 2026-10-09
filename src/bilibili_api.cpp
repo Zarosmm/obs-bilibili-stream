@@ -16,6 +16,8 @@ static std::string jsonErrorMessage(const json11::Json &json)
 	std::string message = json["message"].string_value();
 	if (message.empty())
 		message = json["msg"].string_value();
+	if (message.empty())
+		message = "接口返回错误，错误码: " + std::to_string(json["code"].int_value());
 	return message;
 }
 
@@ -347,7 +349,7 @@ bool BiliApi::startLive(Config &config, std::string &rtmp_addr, std::string &rtm
 
 	std::string err;
 	json11::Json json = json11::Json::parse(version_response.data, err);
-	if (!err.empty() || json["code"].int_value() != 0) {
+	if (!err.empty() || !json["code"].is_number() || json["code"].int_value() != 0) {
 		const std::string detail = err.empty() ? jsonErrorMessage(json) : err;
 		obs_log(LOG_ERROR, "获取直播版本信息失败: %s", detail.c_str());
 		message = "解析直播版本信息失败: " + detail;
@@ -389,6 +391,10 @@ bool BiliApi::startLive(Config &config, std::string &rtmp_addr, std::string &rtm
 		return false;
 	}
 
+	if (!json["code"].is_number()) {
+		message = "开播响应缺少有效错误码";
+		return false;
+	}
 	int code = json["code"].int_value();
 	obs_log(LOG_INFO, "开始直播，mid: %s", mid.c_str());
 	if (code != 0) {
@@ -446,7 +452,7 @@ bool BiliApi::stopLive(const Config &config, std::string &message)
 
 	std::string err;
 	json11::Json json = json11::Json::parse(response.data, err);
-	if (!err.empty() || json["code"].int_value() != 0) {
+	if (!err.empty() || !json["code"].is_number() || json["code"].int_value() != 0) {
 		const std::string detail = err.empty() ? jsonErrorMessage(json) : err;
 		obs_log(LOG_ERROR, "停止直播失败: %s", detail.c_str());
 		message = "停止直播失败: " + detail;
@@ -490,7 +496,7 @@ bool BiliApi::updateRoomInfo(const Config &config, std::string &message, const s
 
 	std::string err;
 	json11::Json json = json11::Json::parse(response.data, err);
-	if (!err.empty() || json["code"].int_value() != 0) {
+	if (!err.empty() || !json["code"].is_number() || json["code"].int_value() != 0) {
 		message = "更新直播间信息失败: " + (err.empty() ? jsonErrorMessage(json) : err);
 		return false;
 	}

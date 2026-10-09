@@ -33,7 +33,7 @@
     },
     "platformConfig": {
         "macos": {
-            "bundleId": "com.example.plugintemplate-for-obs"
+            "bundleId": "com.obsproject.Studio.Plugin.BilibiliStream"
         }
     },
     "name": "bilibili-stream-for-obs",

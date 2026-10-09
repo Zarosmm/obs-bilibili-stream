@@ -8,6 +8,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Check packaging metadata
+        run: python3 tests/check_metadata.py
       - name: clang-format check 🐉
         id: clang-format
         uses: ./.github/actions/run-clang-format

@@ -12,6 +12,9 @@
 #include <QClipboard>
 #include "core/qr_generator.hpp"
 #include "bilibili_api.hpp"
+#include "ui/async_task.hpp"
+#include <memory>
+#include "ui/partition_id.hpp"
 
 namespace UI {
 
@@ -53,26 +56,35 @@ QDialog *DialogFactory::qrLogin(QWidget *parent, const std::string &qrData, std:
 	layout->addWidget(new QLabel("使用手机扫描二维码登录"));
 
 	QTimer *timer = new QTimer(dialog);
-	int retryCount = 0;
-
-	auto timerCallback = [&, retryCount, qrKey, onSuccess, timer, qrLabel, dialog]() mutable {
-		if (retryCount > 180) {
+	auto pending = std::make_shared<bool>(false);
+	auto attempts = std::make_shared<int>(0);
+	QObject::connect(timer, &QTimer::timeout, dialog, [=] {
+		if (*pending)
+			return;
+		if (++*attempts > 180) {
 			timer->stop();
 			qrLabel->setText("二维码已过期，请重新打开");
 			return;
 		}
-		++retryCount;
+		*pending = true;
+		runAsync(dialog, [=]() mutable {
+			std::string cookies, message;
+			auto key = qrKey;
+			bool ok = Bili::BiliApi::qrLogin(key, cookies, message);
+			return [=] {
+				*pending = false;
+				if (!dialog->isVisible())
+					return;
+				if (ok) {
+					timer->stop();
+					if (onSuccess)
+						onSuccess(cookies);
+					dialog->accept();
+				}
+			};
+		});
+	});
 
-		std::string cookies, message;
-		if (Bili::BiliApi::qrLogin(qrKey, cookies, message)) {
-			timer->stop();
-			if (onSuccess)
-				onSuccess(cookies);
-			dialog->accept();
-		}
-	};
-
-	QObject::connect(timer, &QTimer::timeout, timerCallback);
 	QObject::connect(dialog, &QDialog::finished, [timer, dialog]() {
 		timer->stop();
 		dialog->deleteLater();
@@ -88,11 +100,10 @@ QDialog *DialogFactory::streamStarted(QWidget *parent, const std::string &rtmpAd
 	QDialog *dialog = createBaseDialog("消息", parent);
 	QVBoxLayout *layout = (QVBoxLayout *)dialog->layout();
 
-	layout->addWidget(new QLabel(
-		QString("Bilibili已开始直播请复制以下内容进行推流\n"
-			"若自定义推流失败请使用预设的B站推流更换推流地址尝试\n"
-			"RTMP 地址: %1\n推流码: %2")
-			.arg(QString::fromStdString(rtmpAddr), QString::fromStdString(rtmpCode))));
+	layout->addWidget(new QLabel(QString("Bilibili已开始直播请复制以下内容进行推流\n"
+					     "若自定义推流失败请使用预设的B站推流更换推流地址尝试\n"
+					     "RTMP 地址: %1\n推流码: %2")
+					     .arg(QString::fromStdString(rtmpAddr), QString::fromStdString(rtmpCode))));
 
 	QPushButton *copy = new QPushButton("复制");
 	QPushButton *confirm = new QPushButton("确认");
@@ -100,8 +111,9 @@ QDialog *DialogFactory::streamStarted(QWidget *parent, const std::string &rtmpAd
 	layout->addWidget(confirm);
 
 	QObject::connect(copy, &QPushButton::clicked, [=]() {
-		QApplication::clipboard()->setText(QString("推流地址: %1\n推流码: %2")
-						  .arg(QString::fromStdString(rtmpAddr), QString::fromStdString(rtmpCode)));
+		QApplication::clipboard()->setText(
+			QString("推流地址: %1\n推流码: %2")
+				.arg(QString::fromStdString(rtmpAddr), QString::fromStdString(rtmpCode)));
 	});
 	QObject::connect(confirm, &QPushButton::clicked, dialog, &QDialog::accept);
 	QObject::connect(dialog, &QDialog::finished, dialog, &QDialog::deleteLater);
@@ -124,9 +136,8 @@ QDialog *DialogFactory::faceAuth(QWidget *parent, const std::string &faceUrl)
 	}
 	qrLabel->setAlignment(Qt::AlignCenter);
 
-	QLabel *tipLabel = new QLabel(
-		"请使用<b>手机 Bilibili App</b> 扫描下方二维码完成人脸认证。<br>"
-		"认证完成后，请重新点击开始直播。");
+	QLabel *tipLabel = new QLabel("请使用<b>手机 Bilibili App</b> 扫描下方二维码完成人脸认证。<br>"
+				      "认证完成后，请重新点击开始直播。");
 	tipLabel->setWordWrap(true);
 	tipLabel->setAlignment(Qt::AlignCenter);
 
@@ -144,14 +155,15 @@ QDialog *DialogFactory::faceAuth(QWidget *parent, const std::string &faceUrl)
 }
 
 QDialog *DialogFactory::roomSettings(QWidget *parent, const std::string &roomUrl, const std::string &currentTitle,
-				    int currentAreaId, int currentPartId,
-				    std::function<void(const std::string &title)> onTitleApply,
-				    std::function<void(int areaId, int partId)> onPartitionApply)
+				     int currentAreaId, int currentPartId,
+				     std::function<void(const std::string &title)> onTitleApply,
+				     std::function<void(int areaId, int partId)> onPartitionApply)
 {
 	QDialog *dialog = createBaseDialog("更新直播间信息", parent);
 	QVBoxLayout *layout = (QVBoxLayout *)dialog->layout();
 
-	layout->addWidget(new QLabel(QString("直播间: https://live.bilibili.com/%1").arg(QString::fromStdString(roomUrl))));
+	layout->addWidget(
+		new QLabel(QString("直播间: https://live.bilibili.com/%1").arg(QString::fromStdString(roomUrl))));
 
 	QLineEdit *titleInput = new QLineEdit(QString::fromStdString(currentTitle));
 	QPushButton *confirmTitle = new QPushButton("确认");
@@ -176,44 +188,67 @@ QDialog *DialogFactory::roomSettings(QWidget *parent, const std::string &roomUrl
 		std::string name;
 		std::vector<json11::Json> list;
 	};
-	std::vector<Part> parts;
-	std::string message;
-	auto partitionData = Bili::BiliApi::getPartitionList(message);
-	if (partitionData.is_array()) {
-		for (const auto &item : partitionData.array_items()) {
-			parts.push_back({item["id"].int_value(), item["name"].string_value(),
-					 item["list"].array_items()});
-		}
-	}
+	confirmPartition->setEnabled(false);
+	partCombo->setEnabled(false);
+	areaCombo->setEnabled(false);
+	runAsync(dialog, [=] {
+		std::string message;
+		auto partitionData = Bili::BiliApi::getPartitionList(message);
+		return [=] {
+			if (!dialog->isVisible())
+				return;
+			std::vector<Part> parts;
 
-	size_t selectedPartIndex = 0;
-	for (size_t i = 0; i < parts.size(); ++i) {
-		partCombo->addItem(QString::fromStdString(parts[i].name), parts[i].id);
-		if (parts[i].id == currentPartId)
-			selectedPartIndex = i;
-	}
-	partCombo->setCurrentIndex(static_cast<int>(selectedPartIndex));
-
-	auto updateAreaCombo = [=](int partIndex) {
-		areaCombo->clear();
-		if (partIndex >= 0 && static_cast<size_t>(partIndex) < parts.size() && !parts[partIndex].list.empty()) {
-			size_t selectedAreaIndex = 0;
-			for (size_t i = 0; i < parts[partIndex].list.size(); ++i) {
-				int id = std::stoi(parts[partIndex].list[i]["id"].string_value());
-				QString name = QString::fromStdString(parts[partIndex].list[i]["name"].string_value());
-				areaCombo->addItem(name, id);
-				if (id == currentAreaId)
-					selectedAreaIndex = i;
+			if (partitionData.is_array()) {
+				for (const auto &item : partitionData.array_items()) {
+					int id = 0;
+					if (parsePartitionId(item["id"], id) && item["list"].is_array())
+						parts.push_back(
+							{id, item["name"].string_value(), item["list"].array_items()});
+				}
 			}
-			areaCombo->setCurrentIndex(static_cast<int>(selectedAreaIndex));
-		} else {
-			areaCombo->addItem("英雄联盟", 86);
-			if (currentAreaId == 86)
-				areaCombo->setCurrentIndex(0);
-		}
-	};
-	updateAreaCombo(static_cast<int>(selectedPartIndex));
-	QObject::connect(partCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), updateAreaCombo);
+
+			size_t selectedPartIndex = 0;
+			for (size_t i = 0; i < parts.size(); ++i) {
+				partCombo->addItem(QString::fromStdString(parts[i].name), parts[i].id);
+				if (parts[i].id == currentPartId)
+					selectedPartIndex = i;
+			}
+			partCombo->setCurrentIndex(static_cast<int>(selectedPartIndex));
+
+			auto updateAreaCombo = [=](int partIndex) {
+				areaCombo->clear();
+				if (partIndex >= 0 && static_cast<size_t>(partIndex) < parts.size() &&
+				    !parts[partIndex].list.empty()) {
+					size_t selectedAreaIndex = 0;
+					for (size_t i = 0; i < parts[partIndex].list.size(); ++i) {
+						const auto &value = parts[partIndex].list[i]["id"];
+						int id = 0;
+						if (!parsePartitionId(value, id))
+							continue;
+						QString name = QString::fromStdString(
+							parts[partIndex].list[i]["name"].string_value());
+						areaCombo->addItem(name, id);
+						if (id == currentAreaId)
+							selectedAreaIndex = static_cast<size_t>(areaCombo->count() - 1);
+					}
+					areaCombo->setCurrentIndex(static_cast<int>(selectedAreaIndex));
+				}
+				confirmPartition->setEnabled(areaCombo->count() > 0 &&
+							     partCombo->currentData().toInt() > 0);
+			};
+			updateAreaCombo(static_cast<int>(selectedPartIndex));
+			QObject::connect(partCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), dialog,
+					 updateAreaCombo);
+			partCombo->setEnabled(!parts.empty());
+			areaCombo->setEnabled(areaCombo->count() > 0);
+			if (parts.empty())
+				DialogFactory::message(
+					QString::fromStdString(message.empty() ? "未获取到有效分区，请重新打开设置"
+									       : message),
+					"错误", dialog);
+		};
+	});
 
 	QObject::connect(confirmTitle, &QPushButton::clicked, [=]() {
 		std::string newTitle = titleInput->text().trimmed().toUtf8().constData();
@@ -223,7 +258,7 @@ QDialog *DialogFactory::roomSettings(QWidget *parent, const std::string &roomUrl
 	});
 
 	QObject::connect(confirmPartition, &QPushButton::clicked, [=]() {
-		if (onPartitionApply) {
+		if (onPartitionApply && areaCombo->currentData().toInt() > 0 && partCombo->currentData().toInt() > 0) {
 			onPartitionApply(areaCombo->currentData().toInt(), partCombo->currentData().toInt());
 		}
 	});
