@@ -23,7 +23,9 @@ static size_t headerCallback(char *buffer, size_t size, size_t nitems, void *use
 	size_t realsize = size * nitems;
 	auto *cookies = static_cast<std::string *>(userp);
 	const char *set_cookie = "Set-Cookie: ";
-	if (strncasecmp(buffer, set_cookie, strlen(set_cookie)) == 0) {
+	// libcurl does not guarantee a NUL-terminated buffer and may deliver short
+	// header lines (such as the terminating CRLF), so never read past realsize.
+	if (realsize > strlen(set_cookie) && strncasecmp(buffer, set_cookie, strlen(set_cookie)) == 0) {
 		std::string cookie(buffer + strlen(set_cookie), realsize - strlen(set_cookie));
 		size_t end = cookie.find(';');
 		if (end != std::string::npos)
