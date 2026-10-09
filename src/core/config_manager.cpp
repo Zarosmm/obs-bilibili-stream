@@ -1,11 +1,15 @@
 #include "core/config_manager.hpp"
 #include <obs-module.h>
+#include <filesystem>
 
 namespace Core {
 ConfigManager::ConfigManager() {}
 
 char *ConfigManager::getConfigPath()
 {
+	char *path = obs_module_config_path("config.json");
+	if (path)
+		return path;
 	return obs_module_file("config.json");
 }
 
@@ -59,7 +63,16 @@ void ConfigManager::save()
 	obs_data_set_string(settings, "rtmp_code", m_config.rtmp_code.c_str());
 	obs_data_set_int(settings, "part_id", m_config.part_id);
 	obs_data_set_int(settings, "area_id", m_config.area_id);
-	obs_data_save_json(settings, configFile);
+	std::error_code ec;
+	try {
+		auto configPath = std::filesystem::u8path(configFile);
+		std::filesystem::create_directories(configPath.parent_path(), ec);
+	} catch (const std::exception &e) {
+		blog(LOG_WARNING, "[obs-bilibili-stream] 创建配置目录失败: %s", e.what());
+	}
+	if (!obs_data_save_json(settings, configFile)) {
+		blog(LOG_WARNING, "[obs-bilibili-stream] 配置保存失败: %s", configFile);
+	}
 	obs_data_release(settings);
 	bfree(configFile);
 }

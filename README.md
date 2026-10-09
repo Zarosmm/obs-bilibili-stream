@@ -6,6 +6,11 @@
 
 ## 安装方法
 
+<div align="center">
+  <img width="785" height="916" alt="image" src="https://github.com/user-attachments/assets/bf0b35cb-b7ce-49d5-b783-41cbaffefd08" />
+  <p><i>OBS 官方插件安装路径说明</i></p>
+</div>
+
 ### Windows
 
 1.  **下载插件**：从 [Releases 页面](https://github.com/Zarosmm/obs-bilibili-stream/releases) 下载最新的 `bilibili-stream-for-obs-*-windows-x64.zip`。
@@ -24,11 +29,6 @@
                 └── (相关的 .ini 语言文件)
     ```
 5.  **启动 OBS**：重新启动 OBS Studio，插件将自动加载。
-
-<div align="center">
-  <img width="785" height="916" alt="image" src="https://github.com/user-attachments/assets/bf0b35cb-b7ce-49d5-b783-41cbaffefd08" />
-  <p><i>OBS 官方插件安装路径说明</i></p>
-</div>
 
 ### macOS
 
@@ -52,6 +52,47 @@
 4.  **启动 OBS**：重新启动 OBS Studio，插件将自动加载。
 
 插件将安装到 `/usr/lib/obs-plugins/` 目录。
+
+### Flatpak（OBS Studio Flatpak）
+
+Flatpak 插件仅适用于通过 Flatpak 安装的 OBS Studio stable 版本，目前提供 x86_64 架构。
+
+1. **下载插件**：从 [Releases 页面](https://github.com/Zarosmm/obs-bilibili-stream/releases) 下载最新的 `bilibili-stream-for-obs-*-flatpak-x86_64.flatpak`。
+2. **安装插件**：在下载目录运行：
+    ```bash
+    flatpak install --user ./bilibili-stream-for-obs-*-flatpak-x86_64.flatpak
+    ```
+3. **启动 OBS**：运行 Flatpak 版 OBS Studio，插件将自动加载：
+    ```bash
+    flatpak run com.obsproject.Studio
+    ```
+
+更新插件时，下载新的 bundle 并运行：
+
+```bash
+flatpak install --user --or-update ./bilibili-stream-for-obs-*-flatpak-x86_64.flatpak
+```
+
+卸载插件：
+
+```bash
+flatpak uninstall --user com.obsproject.Studio.Plugin.BilibiliStream
+```
+
+该 bundle 不适用于通过系统软件包安装的原生 OBS Studio；此类安装请使用 `.deb` 或 `.rpm` 包。
+
+### Fedora/openSUSE（非官方）
+
+1.  **下载插件**：从 [openSUSE Build Service](https://build.opensuse.org/package/show/home:whoaml/obs-bilibili-stream) 下载最新的 `.rpm` 包（例如 `obs-bilibili-stream-2.1.3-5.1.x86_64.rpm）。
+2.  **安装插件**：运行以下命令：
+    ```bash
+    sudo rpm -i obs-bilibili-stream-*.rpm
+    ```
+
+3.  **启动 OBS**：重新启动 OBS Studio，插件将自动加载。
+
+插件将安装到 `/usr/lib/obs-plugins/` 目录。
+
 
 ## 使用方法
 

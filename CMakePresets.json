@@ -46,6 +46,37 @@
       }
     },
     {
+      "name": "macos-x86_64",
+      "displayName": "macOS x86_64",
+      "description": "Build for macOS 12.0+ (Intel x86_64 only)",
+      "inherits": ["template"],
+      "binaryDir": "${sourceDir}/build_macos_x86_64",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      },
+      "generator": "Xcode",
+      "warnings": {"dev": true, "deprecated": true},
+      "cacheVariables": {
+        "CMAKE_OSX_DEPLOYMENT_TARGET": "12.0",
+        "CMAKE_OSX_ARCHITECTURES": "x86_64",
+        "CODESIGN_IDENTITY": "$penv{CODESIGN_IDENT}",
+        "CODESIGN_TEAM": "$penv{CODESIGN_TEAM}"
+      }
+    },
+    {
+      "name": "macos-ci-x86_64",
+      "inherits": ["macos-x86_64"],
+      "displayName": "macOS x86_64 CI build",
+      "description": "Build for macOS 12.0+ (Intel x86_64 only) for CI",
+      "generator": "Xcode",
+      "cacheVariables": {
+        "CMAKE_COMPILE_WARNING_AS_ERROR": true,
+        "ENABLE_CCACHE": true
+      }
+    },
+    {
       "name": "windows-x64",
       "displayName": "Windows x64",
       "description": "Build for Windows x64",
@@ -112,6 +143,20 @@
       "configurePreset": "macos-ci",
       "displayName": "macOS Universal CI",
       "description": "macOS CI build for Universal architectures",
+      "configuration": "RelWithDebInfo"
+    },
+    {
+      "name": "macos-x86_64",
+      "configurePreset": "macos-x86_64",
+      "displayName": "macOS x86_64",
+      "description": "macOS build for Intel x86_64",
+      "configuration": "RelWithDebInfo"
+    },
+    {
+      "name": "macos-ci-x86_64",
+      "configurePreset": "macos-ci-x86_64",
+      "displayName": "macOS x86_64 CI",
+      "description": "macOS CI build for Intel x86_64",
       "configuration": "RelWithDebInfo"
     },
     {

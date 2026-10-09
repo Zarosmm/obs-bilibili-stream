@@ -46,6 +46,46 @@ The plugin will be installed to `/Library/Application Support/obs-studio/plugins
 
 The plugin will be installed to `/usr/lib/obs-plugins/` directory.
 
+### Flatpak (OBS Studio Flatpak)
+
+The Flatpak plugin is only compatible with the stable Flatpak build of OBS Studio and is currently provided for x86_64.
+
+1. **Download plugin**: Download the latest `bilibili-stream-for-obs-*-flatpak-x86_64.flatpak` from the [Releases page](https://github.com/Zarosmm/obs-bilibili-stream/releases).
+2. **Install plugin**: Run the following command in the download directory:
+    ```bash
+    flatpak install --user ./bilibili-stream-for-obs-*-flatpak-x86_64.flatpak
+    ```
+3. **Launch OBS**: Start the Flatpak build of OBS Studio; the plugin will load automatically:
+    ```bash
+    flatpak run com.obsproject.Studio
+    ```
+
+To update the plugin, download the new bundle and run:
+
+```bash
+flatpak install --user --or-update ./bilibili-stream-for-obs-*-flatpak-x86_64.flatpak
+```
+
+To uninstall the plugin, run:
+
+```bash
+flatpak uninstall --user com.obsproject.Studio.Plugin.BilibiliStream
+```
+
+This bundle cannot be used with a native OBS Studio installation from a system package. Use a `.deb` or `.rpm` package for those installations.
+
+### Fedora/openSUSE（Unoffical）
+
+1.  **Download plugin**： Download the latest '.rpm' packages（e.g., `obs-bilibili-stream-2.1.3-5.1.x86_64.rpm）from the [openSUSE Build Service](https://build.opensuse.org/package/show/home:whoaml/obs-bilibili-stream).
+2.  **Install plugin**：Run the following command：
+    ```bash
+    sudo rpm -i obs-bilibili-stream-*.rpm
+    ```
+3.  **Launch OBS**: Restart OBS Studio, the plugin will load automatically.
+
+The plugin will be installed to `/usr/lib/obs-plugins/` directory.
+
+
 ## Usage
 
 1. **Login to Bilibili**:
