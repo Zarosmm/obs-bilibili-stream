@@ -10,10 +10,29 @@
 #include <QTimer>
 #include <QApplication>
 #include <QClipboard>
+#include <charconv>
 #include "core/qr_generator.hpp"
 #include "bilibili_api.hpp"
 
 namespace UI {
+
+// The Bilibili API sometimes returns area ids as JSON strings and sometimes as
+// numbers; accept both shapes and never throw, so a malformed payload cannot
+// escape a Qt signal handler (an exception there terminates the process).
+static bool parseAreaId(const json11::Json &value, int &id)
+{
+	const std::string text = value.is_string() ? value.string_value() : value.dump();
+	if (text.empty())
+		return false;
+
+	int parsed = 0;
+	auto result = std::from_chars(text.data(), text.data() + text.size(), parsed);
+	if (result.ec != std::errc() || result.ptr != text.data() + text.size())
+		return false;
+
+	id = parsed;
+	return true;
+}
 
 static QDialog *createBaseDialog(const QString &title, QWidget *parent)
 {
@@ -199,11 +218,13 @@ QDialog *DialogFactory::roomSettings(QWidget *parent, const std::string &roomUrl
 		if (partIndex >= 0 && static_cast<size_t>(partIndex) < parts.size() && !parts[partIndex].list.empty()) {
 			size_t selectedAreaIndex = 0;
 			for (size_t i = 0; i < parts[partIndex].list.size(); ++i) {
-				int id = std::stoi(parts[partIndex].list[i]["id"].string_value());
+				int id = 0;
+				if (!parseAreaId(parts[partIndex].list[i]["id"], id))
+					continue;
 				QString name = QString::fromStdString(parts[partIndex].list[i]["name"].string_value());
 				areaCombo->addItem(name, id);
 				if (id == currentAreaId)
-					selectedAreaIndex = i;
+					selectedAreaIndex = static_cast<size_t>(areaCombo->count() - 1);
 			}
 			areaCombo->setCurrentIndex(static_cast<int>(selectedAreaIndex));
 		} else {
