@@ -3,6 +3,11 @@
 #include <thread>
 #include <mutex>
 #include <condition_variable>
+#include <exception>
+#include <array> // Qt's QMetaObject::invokeMethod() machinery needs std::array; MSVC and libc++ do not pull it in
+#include <QMetaObject>
+#include "plugin_utils.hpp"
+#include "util/base.h"
 
 #ifdef _WIN32
 #define strncasecmp _strnicmp
@@ -40,20 +45,39 @@ static size_t headerCallback(char *buffer, size_t size, size_t nitems, void *use
 	return realsize;
 }
 
-struct AsyncRequest {
-	std::string url;
-	std::string data;
-	std::vector<std::string> headers;
-	std::function<void(HttpResponse)> callback;
-	bool is_post;
-	long timeout_ms;
-};
+// All background work runs as opaque jobs on the single worker thread, which
+// also serializes the libcurl calls made by HttpClient::get()/post().
+using AsyncJob = std::function<void()>;
 
-static std::queue<AsyncRequest> async_queue;
+static std::queue<AsyncJob> async_queue;
 static std::mutex queue_mutex;
 static std::condition_variable queue_cv;
 static bool stop_worker = false;
 static std::thread worker_thread;
+
+static bool workerStopping()
+{
+	std::lock_guard<std::mutex> lock(queue_mutex);
+	return stop_worker;
+}
+
+static void enqueue(AsyncJob job)
+{
+	{
+		std::lock_guard<std::mutex> lock(queue_mutex);
+		if (stop_worker)
+			return; // module is unloading: refuse new work
+		async_queue.push(std::move(job));
+	}
+	queue_cv.notify_one();
+}
+
+static void invokeOnObject(QObject *context, std::function<void()> done)
+{
+	if (!context || !done)
+		return;
+	QMetaObject::invokeMethod(context, std::move(done), Qt::QueuedConnection);
+}
 
 static void workerLoop()
 {
@@ -61,29 +85,24 @@ static void workerLoop()
 		std::unique_lock<std::mutex> lock(queue_mutex);
 		queue_cv.wait(lock, [] { return !async_queue.empty() || stop_worker; });
 		if (stop_worker) {
-			// Shutting down: drop queued requests and exit. Draining them
-			// here could block module unload for the full timeout of every
-			// pending request.
+			// Shutting down: drop queued jobs and exit. Draining them here
+			// could block module unload for the full timeout of every pending
+			// request.
 			while (!async_queue.empty())
 				async_queue.pop();
 			break;
 		}
-		AsyncRequest req = async_queue.front();
+		AsyncJob job = async_queue.front();
 		async_queue.pop();
 		lock.unlock();
 
-		HttpResponse response;
-		if (req.is_post) {
-			response = HttpClient::post(req.url, req.data, req.headers, req.timeout_ms);
-		} else {
-			response = HttpClient::get(req.url, req.headers, req.timeout_ms);
+		try {
+			job();
+		} catch (const std::exception &error) {
+			obs_log(LOG_ERROR, "异步任务执行失败: %s", error.what());
+		} catch (...) {
+			obs_log(LOG_ERROR, "异步任务执行失败: 未知异常");
 		}
-		lock.lock();
-		bool stale = stop_worker;
-		lock.unlock();
-		if (stale)
-			break; // unload in progress: skip callbacks that may touch destroyed state
-		req.callback(response);
 	}
 }
 
@@ -204,20 +223,43 @@ HttpResponse HttpClient::post(const std::string &url, const std::string &data, c
 void HttpClient::getAsync(const std::string &url, const std::vector<std::string> &headers,
 			  std::function<void(HttpResponse)> callback, long timeout_ms)
 {
-	{
-		std::lock_guard<std::mutex> lock(queue_mutex);
-		async_queue.push({url, "", headers, callback, false, timeout_ms});
-	}
-	queue_cv.notify_one();
+	enqueue([url, headers, callback = std::move(callback), timeout_ms]() {
+		HttpResponse response = HttpClient::get(url, headers, timeout_ms);
+		if (workerStopping())
+			return; // unload in progress: skip callbacks that may touch destroyed state
+		if (callback)
+			callback(response);
+	});
 }
 
 void HttpClient::postAsync(const std::string &url, const std::string &data, const std::vector<std::string> &headers,
 			   std::function<void(HttpResponse)> callback, long timeout_ms)
 {
-	{
-		std::lock_guard<std::mutex> lock(queue_mutex);
-		async_queue.push({url, data, headers, callback, true, timeout_ms});
-	}
-	queue_cv.notify_one();
+	enqueue([url, data, headers, callback = std::move(callback), timeout_ms]() {
+		HttpResponse response = HttpClient::post(url, data, headers, timeout_ms);
+		if (workerStopping())
+			return; // unload in progress: skip callbacks that may touch destroyed state
+		if (callback)
+			callback(response);
+	});
+}
+
+void HttpClient::runAsync(QObject *context, std::function<void()> work, std::function<void()> done)
+{
+	enqueue([context, work = std::move(work), done = std::move(done)]() {
+		try {
+			work();
+		} catch (const std::exception &error) {
+			// Swallow the failure, but still deliver `done`: the callers rely
+			// on it to clear their busy state. The continuation reports the
+			// error through the shared result struct it captured.
+			obs_log(LOG_ERROR, "异步任务执行失败: %s", error.what());
+		} catch (...) {
+			obs_log(LOG_ERROR, "异步任务执行失败: 未知异常");
+		}
+		if (workerStopping())
+			return; // unload in progress: drop UI continuations
+		invokeOnObject(context, std::move(done));
+	});
 }
 } // namespace Http
