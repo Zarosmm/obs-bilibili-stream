@@ -88,11 +88,10 @@ QDialog *DialogFactory::streamStarted(QWidget *parent, const std::string &rtmpAd
 	QDialog *dialog = createBaseDialog("消息", parent);
 	QVBoxLayout *layout = (QVBoxLayout *)dialog->layout();
 
-	layout->addWidget(new QLabel(
-		QString("Bilibili已开始直播请复制以下内容进行推流\n"
-			"若自定义推流失败请使用预设的B站推流更换推流地址尝试\n"
-			"RTMP 地址: %1\n推流码: %2")
-			.arg(QString::fromStdString(rtmpAddr), QString::fromStdString(rtmpCode))));
+	layout->addWidget(new QLabel(QString("Bilibili已开始直播请复制以下内容进行推流\n"
+					     "若自定义推流失败请使用预设的B站推流更换推流地址尝试\n"
+					     "RTMP 地址: %1\n推流码: %2")
+					     .arg(QString::fromStdString(rtmpAddr), QString::fromStdString(rtmpCode))));
 
 	QPushButton *copy = new QPushButton("复制");
 	QPushButton *confirm = new QPushButton("确认");
@@ -100,8 +99,9 @@ QDialog *DialogFactory::streamStarted(QWidget *parent, const std::string &rtmpAd
 	layout->addWidget(confirm);
 
 	QObject::connect(copy, &QPushButton::clicked, [=]() {
-		QApplication::clipboard()->setText(QString("推流地址: %1\n推流码: %2")
-						  .arg(QString::fromStdString(rtmpAddr), QString::fromStdString(rtmpCode)));
+		QApplication::clipboard()->setText(
+			QString("推流地址: %1\n推流码: %2")
+				.arg(QString::fromStdString(rtmpAddr), QString::fromStdString(rtmpCode)));
 	});
 	QObject::connect(confirm, &QPushButton::clicked, dialog, &QDialog::accept);
 	QObject::connect(dialog, &QDialog::finished, dialog, &QDialog::deleteLater);
@@ -124,9 +124,8 @@ QDialog *DialogFactory::faceAuth(QWidget *parent, const std::string &faceUrl)
 	}
 	qrLabel->setAlignment(Qt::AlignCenter);
 
-	QLabel *tipLabel = new QLabel(
-		"请使用<b>手机 Bilibili App</b> 扫描下方二维码完成人脸认证。<br>"
-		"认证完成后，请重新点击开始直播。");
+	QLabel *tipLabel = new QLabel("请使用<b>手机 Bilibili App</b> 扫描下方二维码完成人脸认证。<br>"
+				      "认证完成后，请重新点击开始直播。");
 	tipLabel->setWordWrap(true);
 	tipLabel->setAlignment(Qt::AlignCenter);
 
@@ -144,14 +143,15 @@ QDialog *DialogFactory::faceAuth(QWidget *parent, const std::string &faceUrl)
 }
 
 QDialog *DialogFactory::roomSettings(QWidget *parent, const std::string &roomUrl, const std::string &currentTitle,
-				    int currentAreaId, int currentPartId,
-				    std::function<void(const std::string &title)> onTitleApply,
-				    std::function<void(int areaId, int partId)> onPartitionApply)
+				     int currentAreaId, int currentPartId,
+				     std::function<void(const std::string &title)> onTitleApply,
+				     std::function<void(int areaId, int partId)> onPartitionApply)
 {
 	QDialog *dialog = createBaseDialog("更新直播间信息", parent);
 	QVBoxLayout *layout = (QVBoxLayout *)dialog->layout();
 
-	layout->addWidget(new QLabel(QString("直播间: https://live.bilibili.com/%1").arg(QString::fromStdString(roomUrl))));
+	layout->addWidget(
+		new QLabel(QString("直播间: https://live.bilibili.com/%1").arg(QString::fromStdString(roomUrl))));
 
 	QLineEdit *titleInput = new QLineEdit(QString::fromStdString(currentTitle));
 	QPushButton *confirmTitle = new QPushButton("确认");
@@ -181,8 +181,8 @@ QDialog *DialogFactory::roomSettings(QWidget *parent, const std::string &roomUrl
 	auto partitionData = Bili::BiliApi::getPartitionList(message);
 	if (partitionData.is_array()) {
 		for (const auto &item : partitionData.array_items()) {
-			parts.push_back({item["id"].int_value(), item["name"].string_value(),
-					 item["list"].array_items()});
+			parts.push_back(
+				{item["id"].int_value(), item["name"].string_value(), item["list"].array_items()});
 		}
 	}
 
