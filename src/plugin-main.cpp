@@ -35,7 +35,8 @@ private:
 };
 
 BilibiliStreamPlugin::BilibiliStreamPlugin(QMainWindow *parent)
-	: QObject(nullptr), m_menu(new UI::MenuManager(parent->menuBar(), this))
+	: QObject(nullptr),
+	  m_menu(new UI::MenuManager(parent->menuBar(), this))
 {
 	m_config.load();
 
@@ -160,28 +161,29 @@ void BilibiliStreamPlugin::onUpdateRoomInfo()
 	auto &cfg = m_config.config();
 	auto parent = (QWidget *)obs_frontend_get_main_window();
 
-	UI::DialogFactory::roomSettings(parent, cfg.room_id, cfg.title, cfg.area_id, cfg.part_id,
-					[this, &cfg](const std::string &title) {
-						std::string message;
-						if (Bili::BiliApi::updateRoomInfo(cfg, message, title, -1)) {
-							cfg.title = title;
-							m_config.save();
-							UI::DialogFactory::message(QString::fromUtf8("直播间标题已更新"), "消息");
-						} else {
-							UI::DialogFactory::message(QString::fromUtf8(message), "错误");
-						}
-					},
-					[this, &cfg](int areaId, int partId) {
-						std::string message;
-						if (Bili::BiliApi::updateRoomInfo(cfg, message, "", areaId)) {
-							cfg.part_id = partId;
-							cfg.area_id = areaId;
-							m_config.save();
-							UI::DialogFactory::message(QString::fromUtf8("直播间分区已更新"), "消息");
-						} else {
-							UI::DialogFactory::message(QString::fromUtf8(message), "错误");
-						}
-					});
+	UI::DialogFactory::roomSettings(
+		parent, cfg.room_id, cfg.title, cfg.area_id, cfg.part_id,
+		[this, &cfg](const std::string &title) {
+			std::string message;
+			if (Bili::BiliApi::updateRoomInfo(cfg, message, title, -1)) {
+				cfg.title = title;
+				m_config.save();
+				UI::DialogFactory::message(QString::fromUtf8("直播间标题已更新"), "消息");
+			} else {
+				UI::DialogFactory::message(QString::fromUtf8(message), "错误");
+			}
+		},
+		[this, &cfg](int areaId, int partId) {
+			std::string message;
+			if (Bili::BiliApi::updateRoomInfo(cfg, message, "", areaId)) {
+				cfg.part_id = partId;
+				cfg.area_id = areaId;
+				m_config.save();
+				UI::DialogFactory::message(QString::fromUtf8("直播间分区已更新"), "消息");
+			} else {
+				UI::DialogFactory::message(QString::fromUtf8(message), "错误");
+			}
+		});
 }
 
 static BilibiliStreamPlugin *plugin = nullptr;
