@@ -31,8 +31,9 @@ public:
 
 	// Runs `work` on the HTTP worker thread, so a blocking network call can never
 	// stall the Qt event loop, and delivers `done` to the thread that owns
-	// `context` (Qt::QueuedConnection). `done` is dropped once the module unloads
-	// or `context` has been destroyed, so it is safe to touch widgets from it.
+	// `context` through a queued event, so a modal dialog's nested event loop still
+	// runs it. `done` is dropped once the module unloads or `context` has been
+	// destroyed, so it is safe to touch widgets from it.
 	// `work` must not touch UI objects: capture what it needs by value instead of
 	// reading plugin state.
 	static void runAsync(QObject *context, std::function<void()> work, std::function<void()> done);

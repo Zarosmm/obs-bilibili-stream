@@ -4,8 +4,10 @@
 #include <mutex>
 #include <condition_variable>
 #include <exception>
-#include <array> // Qt's QMetaObject::invokeMethod() machinery needs std::array; MSVC and libc++ do not pull it in
-#include <QMetaObject>
+#include <QCoreApplication>
+#include <QEvent>
+#include <QObject>
+#include <QPointer>
 #include "plugin_utils.hpp"
 #include "util/base.h"
 
@@ -72,11 +74,72 @@ static void enqueue(AsyncJob job)
 	queue_cv.notify_one();
 }
 
-static void invokeOnObject(QObject *context, std::function<void()> done)
+// A completed job is handed back to the thread that owns its context object.
+// QMetaObject::invokeMethod(context, functor, Qt::QueuedConnection) is the
+// obvious tool for that, but its functor overload instantiates
+// QtPrivate::qMetaTypeInterfaceForType<void>(), which the Qt builds shipped
+// with the Windows and macOS OBS dependencies do not export (unresolved
+// external at link time). Posting an event instead only relies on
+// QCoreApplication::postEvent(), and posted events are still delivered by
+// nested event loops such as QDialog::exec().
+class JobEvent : public QEvent {
+public:
+	JobEvent(QPointer<QObject> context, std::function<void()> job)
+		: QEvent(eventType()),
+		  m_context(std::move(context)),
+		  m_job(std::move(job))
+	{
+	}
+
+	static QEvent::Type eventType()
+	{
+		static const QEvent::Type type = static_cast<QEvent::Type>(QEvent::registerEventType());
+		return type;
+	}
+
+	const QPointer<QObject> &context() const { return m_context; }
+
+	void run() const
+	{
+		if (m_job)
+			m_job();
+	}
+
+private:
+	QPointer<QObject> m_context;
+	std::function<void()> m_job;
+};
+
+class UiThreadReceiver : public QObject {
+protected:
+	bool event(QEvent *event) override
+	{
+		if (event->type() == JobEvent::eventType()) {
+			auto *job = static_cast<JobEvent *>(event);
+			// A context that is already gone drops the job, matching what
+			// Qt::QueuedConnection does for a destroyed receiver.
+			if (job->context())
+				job->run();
+			return true;
+		}
+		return QObject::event(event);
+	}
+};
+
+// Deliberately leaked: cleanup() detaches the worker thread, so a job can still
+// be posted while the module unloads. The receiver has to stay valid for that
+// post; the job itself is dropped, because its QPointer context is gone.
+static QObject *uiThreadReceiver()
 {
-	if (!context || !done)
+	static QObject *receiver = new UiThreadReceiver();
+	return receiver;
+}
+
+static void deliverToUiThread(const QPointer<QObject> &context, std::function<void()> done)
+{
+	if (!done)
 		return;
-	QMetaObject::invokeMethod(context, std::move(done), Qt::QueuedConnection);
+	QCoreApplication::postEvent(uiThreadReceiver(), new JobEvent(context, std::move(done)));
 }
 
 static void workerLoop()
@@ -246,7 +309,12 @@ void HttpClient::postAsync(const std::string &url, const std::string &data, cons
 
 void HttpClient::runAsync(QObject *context, std::function<void()> work, std::function<void()> done)
 {
-	enqueue([context, work = std::move(work), done = std::move(done)]() {
+	// runAsync() is called from the UI thread, so priming the receiver here
+	// gives it that thread's affinity before any worker can post to it.
+	(void)uiThreadReceiver();
+
+	QPointer<QObject> guard(context);
+	enqueue([work = std::move(work), done = std::move(done), guard]() {
 		try {
 			work();
 		} catch (const std::exception &error) {
@@ -259,7 +327,7 @@ void HttpClient::runAsync(QObject *context, std::function<void()> work, std::fun
 		}
 		if (workerStopping())
 			return; // unload in progress: drop UI continuations
-		invokeOnObject(context, std::move(done));
+		deliverToUiThread(guard, std::move(done));
 	});
 }
 } // namespace Http
