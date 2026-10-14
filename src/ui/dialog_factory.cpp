@@ -13,6 +13,8 @@
 #include <charconv>
 #include "core/qr_generator.hpp"
 #include "bilibili_api.hpp"
+#include "http_client.hpp"
+#include <memory>
 
 namespace UI {
 
@@ -33,6 +35,22 @@ static bool parseAreaId(const json11::Json &value, int &id)
 	id = parsed;
 	return true;
 }
+
+// Shared state of the asynchronous QR login poll: the timer callback only starts
+// a new request when the previous one has finished, and stops for good once the
+// dialog is closed.
+struct QrPollState {
+	std::string qrKey;
+	int retryCount = 0;
+	bool inFlight = false;
+	bool stopped = false;
+};
+
+struct QrLoginResult {
+	bool ok = false;
+	std::string cookies;
+	std::string message;
+};
 
 static QDialog *createBaseDialog(const QString &title, QWidget *parent)
 {
@@ -55,7 +73,7 @@ void DialogFactory::message(const QString &msg, const QString &title, QWidget *p
 	dialog->exec();
 }
 
-QDialog *DialogFactory::qrLogin(QWidget *parent, const std::string &qrData, std::string &qrKey,
+QDialog *DialogFactory::qrLogin(QWidget *parent, const std::string &qrData, const std::string &qrKey,
 				std::function<void(const std::string &cookies)> onSuccess)
 {
 	QDialog *dialog = createBaseDialog("Bilibili 登录二维码", parent);
@@ -72,27 +90,43 @@ QDialog *DialogFactory::qrLogin(QWidget *parent, const std::string &qrData, std:
 	layout->addWidget(new QLabel("使用手机扫描二维码登录"));
 
 	QTimer *timer = new QTimer(dialog);
-	int retryCount = 0;
+	// Poll on the HTTP worker thread: a synchronous request here kept the UI
+	// thread busy for up to 10 seconds per tick.
+	auto state = std::make_shared<QrPollState>();
+	state->qrKey = qrKey;
 
-	auto timerCallback = [&, retryCount, qrKey, onSuccess, timer, qrLabel, dialog]() mutable {
-		if (retryCount > 180) {
+	QObject::connect(timer, &QTimer::timeout, dialog, [state, timer, qrLabel, dialog, onSuccess]() {
+		if (state->stopped || state->inFlight)
+			return;
+		if (state->retryCount > 180) {
+			state->stopped = true;
 			timer->stop();
 			qrLabel->setText("二维码已过期，请重新打开");
 			return;
 		}
-		++retryCount;
+		++state->retryCount;
+		state->inFlight = true;
 
-		std::string cookies, message;
-		if (Bili::BiliApi::qrLogin(qrKey, cookies, message)) {
-			timer->stop();
-			if (onSuccess)
-				onSuccess(cookies);
-			dialog->accept();
-		}
-	};
+		auto result = std::make_shared<QrLoginResult>();
+		Http::HttpClient::runAsync(
+			dialog,
+			[state, result]() {
+				result->ok = Bili::BiliApi::qrLogin(state->qrKey, result->cookies, result->message);
+			},
+			[state, timer, dialog, onSuccess, result]() {
+				state->inFlight = false;
+				if (state->stopped || !result->ok)
+					return;
+				state->stopped = true;
+				timer->stop();
+				if (onSuccess)
+					onSuccess(result->cookies);
+				dialog->accept();
+			});
+	});
 
-	QObject::connect(timer, &QTimer::timeout, timerCallback);
-	QObject::connect(dialog, &QDialog::finished, [timer, dialog]() {
+	QObject::connect(dialog, &QDialog::finished, [state, timer, dialog]() {
+		state->stopped = true;
 		timer->stop();
 		dialog->deleteLater();
 	});
@@ -162,7 +196,7 @@ QDialog *DialogFactory::faceAuth(QWidget *parent, const std::string &faceUrl)
 }
 
 QDialog *DialogFactory::roomSettings(QWidget *parent, const std::string &roomUrl, const std::string &currentTitle,
-				     int currentAreaId, int currentPartId,
+				     int currentAreaId, int currentPartId, const json11::Json &partitionData,
 				     std::function<void(const std::string &title)> onTitleApply,
 				     std::function<void(int areaId, int partId)> onPartitionApply)
 {
@@ -196,8 +230,6 @@ QDialog *DialogFactory::roomSettings(QWidget *parent, const std::string &roomUrl
 		std::vector<json11::Json> list;
 	};
 	std::vector<Part> parts;
-	std::string message;
-	auto partitionData = Bili::BiliApi::getPartitionList(message);
 	if (partitionData.is_array()) {
 		for (const auto &item : partitionData.array_items()) {
 			parts.push_back(
