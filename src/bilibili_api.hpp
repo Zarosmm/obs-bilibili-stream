@@ -4,10 +4,14 @@
 #include "json11/json11.hpp"
 
 namespace Bili {
-namespace {
-const std::string APP_KEY = "aae92bc66f3edfab";
-const std::string APP_SECRET = "af125a0d5279fd576c1b4418a3e8276d";
-}
+// data.code values returned by the QR login poll endpoint.
+enum QrPollCode {
+	QR_POLL_SUCCESS = 0,
+	QR_POLL_EXPIRED = 86038,
+	QR_POLL_SCANNED = 86090,
+	QR_POLL_NOT_SCANNED = 86101,
+	QR_POLL_REQUEST_FAILED = -1, // network or parse error, worth retrying
+};
 
 struct Config {
 	std::string room_id;
@@ -29,7 +33,9 @@ public:
 	static void cleanup();
 	static bool getQrCode(const std::string &cookies, std::string &qr_data, std::string &qr_key,
 			      std::string &message);
-	static bool qrLogin(std::string &qr_key, std::string &cookies, std::string &message);
+	// poll_code receives one of QrPollCode (or another server code), so the
+	// caller can tell "keep polling" apart from "QR code expired".
+	static bool qrLogin(const std::string &qr_key, std::string &cookies, std::string &message, int &poll_code);
 	static bool checkLoginStatus(const std::string &cookies, std::string &message, std::string &mid);
 	static bool getRoomIdAndCsrf(const std::string &cookies, std::string &room_id, std::string &csrf_token,
 				     std::string &message);

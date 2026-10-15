@@ -192,7 +192,9 @@ void HttpClient::cleanup()
 		worker_thread.detach();
 }
 
-HttpResponse HttpClient::get(const std::string &url, const std::vector<std::string> &headers, long timeout_ms)
+// Shared by get() and post(): post_data == nullptr makes it a GET request.
+static HttpResponse perform(const std::string &url, const std::string *post_data,
+			    const std::vector<std::string> &headers, long timeout_ms)
 {
 	HttpResponse response;
 	response.status = 0;
@@ -205,11 +207,19 @@ HttpResponse HttpClient::get(const std::string &url, const std::vector<std::stri
 	std::string response_data;
 	std::string response_cookies;
 	curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+	if (post_data) {
+		curl_easy_setopt(curl, CURLOPT_POST, 1L);
+		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, post_data->c_str());
+		curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE_LARGE, static_cast<curl_off_t>(post_data->size()));
+	}
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCallback);
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_data);
 	curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, headerCallback);
 	curl_easy_setopt(curl, CURLOPT_HEADERDATA, &response_cookies);
 	curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, timeout_ms);
+	// Fail fast when the network is down instead of using the whole timeout
+	// on the connection attempt.
+	curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, timeout_ms < 5000L ? timeout_ms : 5000L);
 	curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
 
 	struct curl_slist *header_list = nullptr;
@@ -222,65 +232,25 @@ HttpResponse HttpClient::get(const std::string &url, const std::vector<std::stri
 	if (res != CURLE_OK) {
 		response.timeout = (res == CURLE_OPERATION_TIMEDOUT);
 		response.data = std::string("网络错误: ") + curl_easy_strerror(res);
-		response.status = 0;
-		curl_slist_free_all(header_list);
-		curl_easy_cleanup(curl);
-		return response;
+	} else {
+		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.status);
+		response.data = std::move(response_data);
+		response.cookies = std::move(response_cookies);
 	}
-
-	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.status);
-	response.data = std::move(response_data);
-	response.cookies = std::move(response_cookies);
 	curl_slist_free_all(header_list);
 	curl_easy_cleanup(curl);
 	return response;
 }
 
+HttpResponse HttpClient::get(const std::string &url, const std::vector<std::string> &headers, long timeout_ms)
+{
+	return perform(url, nullptr, headers, timeout_ms);
+}
+
 HttpResponse HttpClient::post(const std::string &url, const std::string &data, const std::vector<std::string> &headers,
 			      long timeout_ms)
 {
-	HttpResponse response;
-	response.status = 0;
-	CURL *curl = curl_easy_init();
-	if (!curl) {
-		response.data = "CURL 初始化失败";
-		return response;
-	}
-
-	std::string response_data;
-	std::string response_cookies;
-	curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-	curl_easy_setopt(curl, CURLOPT_POST, 1L);
-	curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data.c_str());
-	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCallback);
-	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_data);
-	curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, headerCallback);
-	curl_easy_setopt(curl, CURLOPT_HEADERDATA, &response_cookies);
-	curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, timeout_ms);
-	curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
-
-	struct curl_slist *header_list = nullptr;
-	for (const auto &header : headers) {
-		header_list = curl_slist_append(header_list, header.c_str());
-	}
-	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, header_list);
-
-	CURLcode res = curl_easy_perform(curl);
-	if (res != CURLE_OK) {
-		response.timeout = (res == CURLE_OPERATION_TIMEDOUT);
-		response.data = std::string("网络错误: ") + curl_easy_strerror(res);
-		response.status = 0;
-		curl_slist_free_all(header_list);
-		curl_easy_cleanup(curl);
-		return response;
-	}
-
-	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response.status);
-	response.data = std::move(response_data);
-	response.cookies = std::move(response_cookies);
-	curl_slist_free_all(header_list);
-	curl_easy_cleanup(curl);
-	return response;
+	return perform(url, &data, headers, timeout_ms);
 }
 
 void HttpClient::getAsync(const std::string &url, const std::vector<std::string> &headers,

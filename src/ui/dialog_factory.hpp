@@ -11,7 +11,10 @@ public:
 	static void message(const QString &msg, const QString &title, QWidget *parent = nullptr);
 	static QDialog *qrLogin(QWidget *parent, const std::string &qrData, const std::string &qrKey,
 				std::function<void(const std::string &cookies)> onSuccess);
-	static QDialog *streamStarted(QWidget *parent, const std::string &rtmpAddr, const std::string &rtmpCode);
+	// applyToObs writes the address and key into OBS' stream settings and
+	// returns an error text, or an empty string on success.
+	static QDialog *streamStarted(QWidget *parent, const std::string &rtmpAddr, const std::string &rtmpCode,
+				      std::function<std::string()> applyToObs);
 	static QDialog *faceAuth(QWidget *parent, const std::string &faceUrl);
 	static QDialog *roomSettings(QWidget *parent, const std::string &roomUrl, const std::string &currentTitle,
 				     int currentAreaId, int currentPartId, const json11::Json &partitionData,

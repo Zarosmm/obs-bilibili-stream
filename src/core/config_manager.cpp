@@ -34,15 +34,22 @@ void ConfigManager::load()
 	m_config.title = obs_data_get_string(settings, "title");
 	m_config.rtmp_addr = obs_data_get_string(settings, "rtmp_addr");
 	m_config.rtmp_code = obs_data_get_string(settings, "rtmp_code");
+	obs_data_set_default_int(settings, "part_id", m_config.part_id);
+	obs_data_set_default_int(settings, "area_id", m_config.area_id);
 	m_config.part_id = static_cast<int>(obs_data_get_int(settings, "part_id"));
 	m_config.area_id = static_cast<int>(obs_data_get_int(settings, "area_id"));
 	obs_data_release(settings);
 	bfree(configFile);
 
-	if (m_config.room_id.empty())
-		m_config.room_id = "12345";
-	if (m_config.csrf_token.empty())
-		m_config.csrf_token = "your_csrf_token";
+	// Older versions filled an empty room id / CSRF token with these
+	// placeholders and saved them back, so "打开直播间" opened somebody else's
+	// room (live.bilibili.com/12345) and requests were sent with a fake token.
+	// Treat them as "not logged in".
+	if (m_config.csrf_token == "your_csrf_token") {
+		m_config.csrf_token.clear();
+		if (m_config.room_id == "12345")
+			m_config.room_id.clear();
+	}
 	if (m_config.title.empty())
 		m_config.title = "我的直播";
 }

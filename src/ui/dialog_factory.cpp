@@ -48,6 +48,7 @@ struct QrPollState {
 
 struct QrLoginResult {
 	bool ok = false;
+	int pollCode = Bili::QR_POLL_REQUEST_FAILED;
 	std::string cookies;
 	std::string message;
 };
@@ -65,7 +66,14 @@ void DialogFactory::message(const QString &msg, const QString &title, QWidget *p
 {
 	QDialog *dialog = createBaseDialog(title, parent ? parent : (QWidget *)obs_frontend_get_main_window());
 	QVBoxLayout *layout = (QVBoxLayout *)dialog->layout();
-	layout->addWidget(new QLabel(msg));
+	// The text often comes straight from the server: show it verbatim (never as
+	// rich text), wrap long lines and let the user copy it into a bug report.
+	QLabel *label = new QLabel(msg);
+	label->setTextFormat(Qt::PlainText);
+	label->setWordWrap(true);
+	label->setTextInteractionFlags(Qt::TextSelectableByMouse);
+	label->setMinimumWidth(320);
+	layout->addWidget(label);
 	QPushButton *confirm = new QPushButton("确认");
 	layout->addWidget(confirm);
 	QObject::connect(confirm, &QPushButton::clicked, dialog, &QDialog::accept);
@@ -87,7 +95,10 @@ QDialog *DialogFactory::qrLogin(QWidget *parent, const std::string &qrData, cons
 		qrLabel->setPixmap(pixmap);
 	}
 	layout->addWidget(qrLabel);
-	layout->addWidget(new QLabel("使用手机扫描二维码登录"));
+	QLabel *statusLabel = new QLabel("使用手机 Bilibili App 扫描二维码登录");
+	statusLabel->setTextFormat(Qt::PlainText);
+	statusLabel->setWordWrap(true);
+	layout->addWidget(statusLabel);
 
 	QTimer *timer = new QTimer(dialog);
 	// Poll on the HTTP worker thread: a synchronous request here kept the UI
@@ -95,13 +106,14 @@ QDialog *DialogFactory::qrLogin(QWidget *parent, const std::string &qrData, cons
 	auto state = std::make_shared<QrPollState>();
 	state->qrKey = qrKey;
 
-	QObject::connect(timer, &QTimer::timeout, dialog, [state, timer, qrLabel, dialog, onSuccess]() {
+	QObject::connect(timer, &QTimer::timeout, dialog, [state, timer, qrLabel, statusLabel, dialog, onSuccess]() {
 		if (state->stopped || state->inFlight)
 			return;
 		if (state->retryCount > 180) {
 			state->stopped = true;
 			timer->stop();
 			qrLabel->setText("二维码已过期，请重新打开");
+			statusLabel->clear();
 			return;
 		}
 		++state->retryCount;
@@ -111,12 +123,24 @@ QDialog *DialogFactory::qrLogin(QWidget *parent, const std::string &qrData, cons
 		Http::HttpClient::runAsync(
 			dialog,
 			[state, result]() {
-				result->ok = Bili::BiliApi::qrLogin(state->qrKey, result->cookies, result->message);
+				result->ok = Bili::BiliApi::qrLogin(state->qrKey, result->cookies, result->message,
+								    result->pollCode);
 			},
-			[state, timer, dialog, onSuccess, result]() {
+			[state, timer, qrLabel, statusLabel, dialog, onSuccess, result]() {
 				state->inFlight = false;
-				if (state->stopped || !result->ok)
+				if (state->stopped)
 					return;
+				if (!result->ok) {
+					if (result->pollCode == Bili::QR_POLL_EXPIRED) {
+						// Polling an expired code can never succeed.
+						state->stopped = true;
+						timer->stop();
+						qrLabel->setText("二维码已过期，请重新打开");
+					}
+					if (!result->message.empty())
+						statusLabel->setText(QString::fromStdString(result->message));
+					return;
+				}
 				state->stopped = true;
 				timer->stop();
 				if (onSuccess)
@@ -136,25 +160,73 @@ QDialog *DialogFactory::qrLogin(QWidget *parent, const std::string &qrData, cons
 	return dialog;
 }
 
-QDialog *DialogFactory::streamStarted(QWidget *parent, const std::string &rtmpAddr, const std::string &rtmpCode)
+QDialog *DialogFactory::streamStarted(QWidget *parent, const std::string &rtmpAddr, const std::string &rtmpCode,
+				      std::function<std::string()> applyToObs)
 {
-	QDialog *dialog = createBaseDialog("消息", parent);
+	QDialog *dialog = createBaseDialog("Bilibili 已开始直播", parent);
 	QVBoxLayout *layout = (QVBoxLayout *)dialog->layout();
 
-	layout->addWidget(new QLabel(QString("Bilibili已开始直播请复制以下内容进行推流\n"
-					     "若自定义推流失败请使用预设的B站推流更换推流地址尝试\n"
-					     "RTMP 地址: %1\n推流码: %2")
-					     .arg(QString::fromStdString(rtmpAddr), QString::fromStdString(rtmpCode))));
+	QLabel *tip = new QLabel("点击「填入 OBS 推流设置」后即可直接在 OBS 中开始推流，也可以手动复制下面的内容。\n"
+				 "若自定义推流失败，请改用 OBS 预设的 Bilibili 服务并更换推流地址尝试。");
+	tip->setWordWrap(true);
+	layout->addWidget(tip);
 
-	QPushButton *copy = new QPushButton("复制");
-	QPushButton *confirm = new QPushButton("确认");
-	layout->addWidget(copy);
-	layout->addWidget(confirm);
+	// One field per value, so each can be copied on its own: the old "copy"
+	// button put both into one labelled text that had to be edited by hand.
+	QLineEdit *addrEdit = new QLineEdit(QString::fromStdString(rtmpAddr));
+	addrEdit->setReadOnly(true);
+	QPushButton *copyAddr = new QPushButton("复制");
+	QHBoxLayout *addrRow = new QHBoxLayout();
+	addrRow->addWidget(new QLabel("服务器:"));
+	addrRow->addWidget(addrEdit, 1);
+	addrRow->addWidget(copyAddr);
+	layout->addLayout(addrRow);
 
-	QObject::connect(copy, &QPushButton::clicked, [=]() {
-		QApplication::clipboard()->setText(
-			QString("推流地址: %1\n推流码: %2")
-				.arg(QString::fromStdString(rtmpAddr), QString::fromStdString(rtmpCode)));
+	// The stream key is masked: this dialog pops up while the screen may
+	// already be captured, and anyone holding the key can push to the room.
+	QLineEdit *codeEdit = new QLineEdit(QString::fromStdString(rtmpCode));
+	codeEdit->setReadOnly(true);
+	codeEdit->setEchoMode(QLineEdit::Password);
+	QPushButton *showCode = new QPushButton("显示");
+	showCode->setCheckable(true);
+	QPushButton *copyCode = new QPushButton("复制");
+	QHBoxLayout *codeRow = new QHBoxLayout();
+	codeRow->addWidget(new QLabel("推流码:"));
+	codeRow->addWidget(codeEdit, 1);
+	codeRow->addWidget(showCode);
+	codeRow->addWidget(copyCode);
+	layout->addLayout(codeRow);
+
+	QLabel *applyStatus = new QLabel();
+	applyStatus->setTextFormat(Qt::PlainText);
+	applyStatus->setWordWrap(true);
+	applyStatus->hide();
+	layout->addWidget(applyStatus);
+
+	QPushButton *apply = new QPushButton("填入 OBS 推流设置");
+	QPushButton *confirm = new QPushButton("关闭");
+	QHBoxLayout *buttonRow = new QHBoxLayout();
+	buttonRow->addWidget(apply);
+	buttonRow->addWidget(confirm);
+	layout->addLayout(buttonRow);
+	apply->setEnabled(static_cast<bool>(applyToObs));
+	apply->setDefault(true);
+
+	QObject::connect(copyAddr, &QPushButton::clicked,
+			 [rtmpAddr]() { QApplication::clipboard()->setText(QString::fromStdString(rtmpAddr)); });
+	QObject::connect(copyCode, &QPushButton::clicked,
+			 [rtmpCode]() { QApplication::clipboard()->setText(QString::fromStdString(rtmpCode)); });
+	QObject::connect(showCode, &QPushButton::toggled, [codeEdit, showCode](bool shown) {
+		codeEdit->setEchoMode(shown ? QLineEdit::Normal : QLineEdit::Password);
+		showCode->setText(shown ? "隐藏" : "显示");
+	});
+	QObject::connect(apply, &QPushButton::clicked, [applyToObs, apply, applyStatus]() {
+		const std::string error = applyToObs();
+		applyStatus->setText(error.empty() ? QString("已填入 OBS 推流设置，现在可以点击 OBS 的「开始直播」")
+						   : QString::fromStdString(error));
+		applyStatus->show();
+		if (error.empty())
+			apply->setEnabled(false);
 	});
 	QObject::connect(confirm, &QPushButton::clicked, dialog, &QDialog::accept);
 	QObject::connect(dialog, &QDialog::finished, dialog, &QDialog::deleteLater);
