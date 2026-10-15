@@ -49,6 +49,31 @@ struct UpdateResult {
 	std::string message;
 };
 
+// Points OBS' own stream output at the server and key Bilibili just handed out,
+// so they no longer have to be copied into Settings > Stream by hand. Returns an
+// error text, or an empty string on success.
+static std::string applyStreamServiceToObs(const std::string &server, const std::string &key)
+{
+	if (obs_frontend_streaming_active())
+		return "OBS 正在推流，请先停止推流后再填入";
+
+	obs_data_t *settings = obs_data_create();
+	obs_data_set_string(settings, "server", server.c_str());
+	obs_data_set_string(settings, "key", key.c_str());
+	obs_data_set_bool(settings, "use_auth", false);
+	obs_service_t *service = obs_service_create("rtmp_custom", "default_service", settings, nullptr);
+	obs_data_release(settings);
+	if (!service)
+		return "创建 OBS 推流服务失败";
+
+	// The frontend keeps its own reference to the service.
+	obs_frontend_set_streaming_service(service);
+	obs_frontend_save_streaming_service();
+	obs_service_release(service);
+	obs_log(LOG_INFO, "已将 Bilibili 推流地址填入 OBS 推流设置");
+	return "";
+}
+
 class BilibiliStreamPlugin : public QObject {
 	Q_OBJECT
 public:
@@ -65,7 +90,7 @@ private:
 	void updateLoginStatus();
 	void openLiveRoom();
 	void setBusy(bool busy);
-	void refreshLoginState(const std::string &cookies);
+	void refreshLoginState(const std::string &cookies, bool notifyFailure = false);
 	void applyRoomTitle(const std::string &title);
 	void applyRoomPartition(int areaId, int partId);
 
@@ -122,7 +147,9 @@ void BilibiliStreamPlugin::setBusy(bool busy)
 	actions.updateRoomInfo->setEnabled(!busy);
 }
 
-void BilibiliStreamPlugin::refreshLoginState(const std::string &cookies)
+// notifyFailure is set right after a QR login, when the user is waiting for the
+// outcome; the silent check at OBS startup must not pop up dialogs.
+void BilibiliStreamPlugin::refreshLoginState(const std::string &cookies, bool notifyFailure)
 {
 	if (m_busy)
 		return;
@@ -137,7 +164,7 @@ void BilibiliStreamPlugin::refreshLoginState(const std::string &cookies)
 				result->roomOk = Bili::BiliApi::getRoomIdAndCsrf(cookies, result->roomId,
 										 result->csrfToken, result->message);
 		},
-		[this, cookies, result]() {
+		[this, cookies, notifyFailure, result]() {
 			setBusy(false);
 			auto &cfg = m_config.config();
 			cfg.cookies = cookies;
@@ -150,6 +177,10 @@ void BilibiliStreamPlugin::refreshLoginState(const std::string &cookies)
 			}
 			m_config.save();
 			updateLoginStatus();
+			if (notifyFailure && (!result->loggedIn || !result->roomOk)) {
+				const std::string text = result->message.empty() ? "登录失败，请重试" : result->message;
+				UI::DialogFactory::message(QString::fromStdString(text), "登录");
+			}
 		});
 }
 
@@ -246,7 +277,9 @@ void BilibiliStreamPlugin::onScanQrcode()
 
 			auto parent = (QWidget *)obs_frontend_get_main_window();
 			UI::DialogFactory::qrLogin(parent, result->qrData, result->qrKey,
-						   [this](const std::string &cookies) { refreshLoginState(cookies); });
+						   [this](const std::string &cookies) {
+							   refreshLoginState(cookies, true);
+						   });
 		});
 }
 
@@ -302,8 +335,12 @@ void BilibiliStreamPlugin::onStreamToggle()
 				cfg.rtmp_addr = result->rtmpAddr;
 				cfg.rtmp_code = result->rtmpCode;
 				m_config.save();
-				UI::DialogFactory::streamStarted((QWidget *)obs_frontend_get_main_window(),
-								 result->rtmpAddr, result->rtmpCode);
+				const std::string addr = result->rtmpAddr;
+				const std::string code = result->rtmpCode;
+				UI::DialogFactory::streamStarted((QWidget *)obs_frontend_get_main_window(), addr, code,
+								 [addr, code]() {
+									 return applyStreamServiceToObs(addr, code);
+								 });
 			} else if (!result->faceQr.empty()) {
 				UI::DialogFactory::faceAuth((QWidget *)obs_frontend_get_main_window(), result->faceQr);
 			} else {
