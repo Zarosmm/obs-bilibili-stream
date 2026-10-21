@@ -16,6 +16,7 @@
   </developer>
   <url type="homepage">https://github.com/Zarosmm/obs-bilibili-stream</url>
   <releases>
+    <release version="2.1.6" date="2026-10-21"/>
     <release version="2.1.5" date="2026-09-09"/>
   </releases>
   <metadata_license>CC0-1.0</metadata_license>
