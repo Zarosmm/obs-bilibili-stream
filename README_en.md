@@ -6,13 +6,48 @@ A plugin for OBS Studio that simplifies the streaming process on Bilibili platfo
 
 ### Windows
 
+#### Option 1: Installer (recommended)
+
+1.  **Download the installer**: Download the latest `bilibili-stream-for-obs-*-windows-x64.exe` from the [Releases page](https://github.com/Zarosmm/obs-bilibili-stream/releases).
+2.  **Close OBS**: Quit OBS Studio before installing.
+3.  **Run the installer**: Double-click it (administrator rights required) and choose how OBS is installed:
+    - **Installed OBS Studio**: installs to `C:\ProgramData\obs-studio\plugins\bilibili-stream-for-obs`
+    - **Portable OBS Studio** (including scoop and other no-install setups): select the OBS root folder (it must contain `bin\64bit\obs64.exe`); the plugin is installed to `<OBS root>\plugins\bilibili-stream-for-obs`. Portable installation requires OBS Studio 33 or later; for older portable builds use the zip package below
+4.  **Launch OBS**: Restart OBS Studio, the plugin will load automatically.
+5.  **Confirm installation**: Open **Tools → Plugin Manager** in OBS and check that `BILIBILI Stream for OBS` is loaded.
+6.  **Uninstall**: Use **Settings → Apps** in Windows to remove `BILIBILI Stream for OBS`. The plugin configuration is stored in the OBS config directory and is kept.
+
+The installer writes both layouts: the new OBS 33+ layout and the legacy OBS 30–32 layout. OBS 33+ prefers the new layout and ignores the duplicate legacy copy; OBS 34 no longer loads the legacy layout.
+
+> The installer is currently unsigned, so SmartScreen may show a warning on first run. Choose **More info** → **Run anyway**.
+
+Silent install:
+
+```bat
+bilibili-stream-for-obs-2.1.6-windows-x64.exe /VERYSILENT /SUPPRESSMSGBOXES
+bilibili-stream-for-obs-2.1.6-windows-x64.exe /PORTABLE="D:\OBS" /VERYSILENT /SUPPRESSMSGBOXES
+```
+
+#### Option 2: Manual installation (zip)
+
 1.  **Download plugin**: Download the latest `bilibili-stream-for-obs-*-windows-x64.zip` from the [Releases page](https://github.com/Zarosmm/obs-bilibili-stream/releases).
 2.  **Extract files**: Unzip the downloaded archive.
-3.  **Move to plugins folder**: Copy the extracted folder to:
-    `C:\ProgramData\obs-studio\plugins`
-4.  **Verify structure**: Ensure the directory structure follows this format:
+3.  **Choose the plugins folder**:
+    - **Installed OBS Studio**: `C:\ProgramData\obs-studio\plugins`
+    - **Portable OBS Studio** (including scoop and other no-install setups): the `plugins` folder in the OBS root directory, next to `bin`. For example, if `obs64.exe` is at `X:\xxx\obs-studio\bin\64bit\`, the plugins folder is `X:\xxx\obs-studio\plugins`.
+      > Portable builds **ignore** plugins placed in `C:\ProgramData\obs-studio\plugins`.
+4.  **Verify structure**: OBS Studio 33 and later use the new plugin layout. Move the `.dll` out of `bin\64bit` so it sits directly in the plugin folder next to `data`:
     ```text
-    C:\ProgramData\obs-studio\plugins\
+    <plugins folder>\
+    └── bilibili-stream-for-obs\
+        ├── bilibili-stream-for-obs.dll
+        └── data\
+            └── locale\
+                └── (language .ini files)
+    ```
+    On OBS Studio 30–32, keep the legacy `bin\64bit` layout:
+    ```text
+    <plugins folder>\
     └── bilibili-stream-for-obs\
         ├── bin\
         │   └── 64bit\
@@ -21,7 +56,9 @@ A plugin for OBS Studio that simplifies the streaming process on Bilibili platfo
             └── locale\
                 └── (language .ini files)
     ```
+    > The legacy layout still loads in OBS Studio 33 but is flagged as "Legacy" by the Plugin Manager. It is no longer supported starting with OBS Studio 34, so migrating to the new layout is recommended.
 5.  **Launch OBS**: Restart OBS Studio, the plugin will load automatically.
+6.  **Confirm installation**: Open **Tools → Plugin Manager** in OBS and check that `BILIBILI Stream for OBS` is loaded.
 
 ### macOS
 

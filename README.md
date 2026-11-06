@@ -13,13 +13,48 @@
 
 ### Windows
 
+#### 方式一：安装包（推荐）
+
+1.  **下载安装包**：从 [Releases 页面](https://github.com/Zarosmm/obs-bilibili-stream/releases) 下载最新的 `bilibili-stream-for-obs-*-windows-x64.exe`。
+2.  **关闭 OBS**：安装前请先退出 OBS Studio。
+3.  **运行安装包**：双击运行（需要管理员权限），选择安装方式：
+    - **安装版 OBS**：安装到 `C:\ProgramData\obs-studio\plugins\bilibili-stream-for-obs`
+    - **便携版 / 绿色版 OBS（portable，包括 scoop 等免安装方式）**：选择 OBS 根目录（需包含 `bin\64bit\obs64.exe`），安装到 `<OBS 根目录>\plugins\bilibili-stream-for-obs`。便携版安装适用于 OBS Studio 33 或更高版本；更早的便携版请使用下方的 zip 手动安装
+4.  **启动 OBS**：重新启动 OBS Studio，插件将自动加载。
+5.  **确认安装**：可在 OBS 的 **工具 → 插件管理器** 中确认 `BILIBILI Stream for OBS` 已加载。
+6.  **卸载**：在 Windows 的 **设置 → 应用** 中找到 `BILIBILI Stream for OBS` 卸载；插件配置保存在 OBS 配置目录中，卸载后不会被删除。
+
+安装包会同时写入 OBS 33+ 的新布局和 OBS 30–32 的旧布局：OBS 33+ 优先加载新布局并忽略重复的旧布局，OBS 34 起旧布局不再加载。
+
+> 安装包当前未签名，首次运行时可能出现 SmartScreen 提示，选择「更多信息」→「仍要运行」即可。
+
+静默安装：
+
+```bat
+bilibili-stream-for-obs-2.1.6-windows-x64.exe /VERYSILENT /SUPPRESSMSGBOXES
+bilibili-stream-for-obs-2.1.6-windows-x64.exe /PORTABLE="D:\OBS" /VERYSILENT /SUPPRESSMSGBOXES
+```
+
+#### 方式二：手动安装（zip）
+
 1.  **下载插件**：从 [Releases 页面](https://github.com/Zarosmm/obs-bilibili-stream/releases) 下载最新的 `bilibili-stream-for-obs-*-windows-x64.zip`。
 2.  **解压文件**：将压缩包解压。
-3.  **放置目录**：将解压后的文件夹移动至以下路径：
-    `C:\ProgramData\obs-studio\plugins`
-4.  **校验结构**：请确保您的目录结构严格遵守以下格式：
+3.  **确定插件目录**：
+    - **安装版 OBS**：`C:\ProgramData\obs-studio\plugins`
+    - **便携版 / 绿色版 OBS（portable，包括 scoop 等免安装方式）**：OBS 根目录下的 `plugins`，即与 `bin` 文件夹同级。例如 `obs64.exe` 位于 `X:\xxx\obs-studio\bin\64bit\`，插件目录就是 `X:\xxx\obs-studio\plugins`。
+      > 便携版**不会**读取 `C:\ProgramData\obs-studio\plugins` 中的插件，放在那里不会生效。
+4.  **校验结构**：OBS Studio 33 起使用新的插件结构，把解压包中的 `.dll` 从 `bin\64bit` 移到插件文件夹内，与 `data` 同级：
     ```text
-    C:\ProgramData\obs-studio\plugins\
+    <插件目录>\
+    └── bilibili-stream-for-obs\
+        ├── bilibili-stream-for-obs.dll
+        └── data\
+            └── locale\
+                └── (相关的 .ini 语言文件)
+    ```
+    如果仍使用 OBS Studio 30–32，请保持旧的 `bin\64bit` 结构：
+    ```text
+    <插件目录>\
     └── bilibili-stream-for-obs\
         ├── bin\
         │   └── 64bit\
@@ -28,7 +63,9 @@
             └── locale\
                 └── (相关的 .ini 语言文件)
     ```
+    > 旧结构在 OBS Studio 33 中依然能加载，但会被插件管理器标记为 “Legacy”，从 OBS Studio 34 起不再支持，建议升级到新结构。
 5.  **启动 OBS**：重新启动 OBS Studio，插件将自动加载。
+6.  **确认安装**：可在 OBS 的 **工具 → 插件管理器** 中确认 `BILIBILI Stream for OBS` 已加载。
 
 ### macOS
 
