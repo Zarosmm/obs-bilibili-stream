@@ -192,7 +192,7 @@ begin
   else
   begin
     Candidates[0] := ExpandConstant('{sd}\obs-studio');
-    Candidates[1] := ExpandConstant('{userprofile}\obs-studio');
+    Candidates[1] := ExpandConstant('{%USERPROFILE}\obs-studio');
     Candidates[2] := ExpandConstant('{userdocs}\obs-studio');
     for I := 0 to 2 do
       if IsValidOBSRoot(Candidates[I]) then

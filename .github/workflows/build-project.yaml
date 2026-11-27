@@ -456,51 +456,67 @@ jobs:
             throw 'Installer executable not found'
           }
 
-          # A portable OBS root only needs bin/64bit/obs64.exe to be detected.
+          $PluginName = ( Get-Content -Path buildspec.json -Raw | ConvertFrom-Json ).name
+
+          function Test-Installation {
+            param(
+              [string[]] $SetupArgs,
+              [string] $PluginDir
+            )
+
+            $Install = Start-Process -FilePath $Installer.FullName `
+              -ArgumentList ($SetupArgs + @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART')) `
+              -Wait -PassThru
+            if ( $Install.ExitCode -ne 0 ) {
+              throw "Installer exited with code $($Install.ExitCode)"
+            }
+
+            $ExpectedFiles = @(
+              "$PluginDir/$PluginName.dll"
+              "$PluginDir/bin/64bit/$PluginName.dll"
+              "$PluginDir/data/locale/en-US.ini"
+            )
+            foreach ( $ExpectedFile in $ExpectedFiles ) {
+              if ( ! ( Test-Path $ExpectedFile ) ) {
+                throw "Missing installed file: $ExpectedFile"
+              }
+            }
+
+            $Uninstall = Start-Process -FilePath "$PluginDir/unins000.exe" `
+              -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' `
+              -Wait -PassThru
+            if ( $Uninstall.ExitCode -ne 0 ) {
+              throw "Uninstaller exited with code $($Uninstall.ExitCode)"
+            }
+
+            # The uninstaller may still be deleting files when it returns.
+            for ( $Attempt = 0; $Attempt -lt 30; $Attempt++ ) {
+              if ( ! ( Test-Path "$PluginDir/$PluginName.dll" ) ) {
+                break
+              }
+              Start-Sleep -Seconds 1
+            }
+            if ( Test-Path "$PluginDir/$PluginName.dll" ) {
+              throw 'Uninstall left the plugin DLL behind'
+            }
+          }
+
+          # Scenario 1: portable OBS. A portable root only needs bin/64bit/obs64.exe.
           $OBSRoot = Join-Path $env:RUNNER_TEMP 'obs-portable-smoke'
           if ( Test-Path $OBSRoot ) {
             Remove-Item $OBSRoot -Recurse -Force
           }
           New-Item -ItemType Directory -Path "$OBSRoot/bin/64bit" -Force | Out-Null
           Set-Content -Path "$OBSRoot/bin/64bit/obs64.exe" -Value 'stub'
+          Test-Installation `
+            -SetupArgs @("/PORTABLE=`"$OBSRoot`"") `
+            -PluginDir ( Join-Path $OBSRoot "plugins/$PluginName" )
 
-          $Install = Start-Process -FilePath $Installer.FullName `
-            -ArgumentList "/PORTABLE=`"$OBSRoot`"", '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' `
-            -Wait -PassThru
-          if ( $Install.ExitCode -ne 0 ) {
-            throw "Installer exited with code $($Install.ExitCode)"
-          }
-
-          $PluginName = ( Get-Content -Path buildspec.json -Raw | ConvertFrom-Json ).name
-          $PluginDir = Join-Path $OBSRoot "plugins/$PluginName"
-          $ExpectedFiles = @(
-            "$PluginDir/$PluginName.dll"
-            "$PluginDir/bin/64bit/$PluginName.dll"
-            "$PluginDir/data/locale/en-US.ini"
-          )
-          foreach ( $ExpectedFile in $ExpectedFiles ) {
-            if ( ! ( Test-Path $ExpectedFile ) ) {
-              throw "Missing installed file: $ExpectedFile"
-            }
-          }
-
-          $Uninstall = Start-Process -FilePath "$PluginDir/unins000.exe" `
-            -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' `
-            -Wait -PassThru
-          if ( $Uninstall.ExitCode -ne 0 ) {
-            throw "Uninstaller exited with code $($Uninstall.ExitCode)"
-          }
-
-          # The uninstaller may still be deleting files when it returns.
-          for ( $Attempt = 0; $Attempt -lt 30; $Attempt++ ) {
-            if ( ! ( Test-Path "$PluginDir/$PluginName.dll" ) ) {
-              break
-            }
-            Start-Sleep -Seconds 1
-          }
-          if ( Test-Path "$PluginDir/$PluginName.dll" ) {
-            throw 'Uninstall left the plugin DLL behind'
-          }
+          # Scenario 2: regular installation. /DIR keeps the test out of ProgramData.
+          $InstalledDir = Join-Path $env:RUNNER_TEMP "obs-installed-smoke/$PluginName"
+          Test-Installation `
+            -SetupArgs @("/DIR=`"$InstalledDir`"") `
+            -PluginDir $InstalledDir
 
       - name: Upload Artifacts 📡
         uses: actions/upload-artifact@v4
