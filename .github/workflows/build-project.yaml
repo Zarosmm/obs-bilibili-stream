@@ -512,11 +512,16 @@ jobs:
             -SetupArgs @("/PORTABLE=`"$OBSRoot`"") `
             -PluginDir ( Join-Path $OBSRoot "plugins/$PluginName" )
 
-          # Scenario 2: regular installation. /DIR keeps the test out of ProgramData.
-          $InstalledDir = Join-Path $env:RUNNER_TEMP "obs-installed-smoke/$PluginName"
-          Test-Installation `
-            -SetupArgs @("/DIR=`"$InstalledDir`"") `
-            -PluginDir $InstalledDir
+          # Scenario 2: regular installation, using the real default destination.
+          $DefaultDir = Join-Path $env:ProgramData "obs-studio/plugins/$PluginName"
+          if ( Test-Path $DefaultDir ) {
+            Remove-Item $DefaultDir -Recurse -Force
+          }
+          Test-Installation -SetupArgs @() -PluginDir $DefaultDir
+
+          # Scenario 3: /DIR override for silent deployments.
+          $CustomDir = Join-Path $env:RUNNER_TEMP "obs-custom-smoke/$PluginName"
+          Test-Installation -SetupArgs @("/DIR=`"$CustomDir`"") -PluginDir $CustomDir
 
       - name: Upload Artifacts 📡
         uses: actions/upload-artifact@v4

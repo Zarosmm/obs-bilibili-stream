@@ -131,13 +131,28 @@ begin
             (Pos(UpperCase(ExpandConstant('{commonpf32}\')), Normalized) = 1);
 end;
 
-function GetDefaultDirName(Param: String): String;
+function GetInstalledDir: String;
+var
+  DirParam: String;
 begin
-  Param := GetPortableParam;
-  if Param <> '' then
-    Result := PortableDestination(Param)
+  // A DefaultDirName built from {code:...} bypasses Inno's own handling of the
+  // /DIR switch, so honour it explicitly.
+  DirParam := Trim(ExpandConstant('{param:DIR}'));
+  if DirParam <> '' then
+    Result := DirParam
   else
     Result := ExpandConstant('{commonappdata}\obs-studio\plugins\{#PluginName}');
+end;
+
+function GetDefaultDirName(Param: String): String;
+var
+  Portable: String;
+begin
+  Portable := GetPortableParam;
+  if Portable <> '' then
+    Result := PortableDestination(Portable)
+  else
+    Result := GetInstalledDir;
 end;
 
 function InitializeSetup: Boolean;
@@ -214,7 +229,7 @@ begin
   if CurPageID = ModePage.ID then
   begin
     if not ModePage.Values[1] then
-      WizardForm.DirEdit.Text := ExpandConstant('{commonappdata}\obs-studio\plugins\{#PluginName}');
+      WizardForm.DirEdit.Text := GetInstalledDir;
   end
   else if CurPageID = PortablePage.ID then
   begin
