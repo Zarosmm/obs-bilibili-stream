@@ -150,6 +150,15 @@ The plugin will be installed to `/usr/lib/obs-plugins/` directory.
 
 ## Troubleshooting
 
+- **Stream fails / RTMP address unavailable**: Bilibili's streaming servers do not all support the same codecs (H.264, HEVC, etc.). If streaming fails with the address returned by the plugin, try one of the alternate servers preset by Bilibili in OBS. Keep using the stream key provided by the plugin:
+
+  | Server | RTMP address |
+  | --- | --- |
+  | Global - primary | `rtmp://live-push.bilivideo.com/live-bvc/` |
+  | Outside mainland China - primary | `rtmp://bdy.live-push.bilivideo.com/live-bvc/` |
+  | Mainland China - backup | `rtmp://txy2.live-push.bilivideo.com/live-bvc/` |
+  | Outside mainland China - backup | `rtmp://txy.live-push.bilivideo.com/live-bvc/` |
+
 - **Logs**: If you encounter issues, check OBS log files:
   - Windows: `C:\Users\<YourUser>\AppData\Roaming\obs-studio\logs`
   - macOS: `~/Library/Logs/obs-studio/`

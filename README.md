@@ -158,6 +158,15 @@ flatpak uninstall --user com.obsproject.Studio.Plugin.BilibiliStream
 
 ## 注意事项
 
+- **推流失败 / RTMP 地址不可用**：B 站的不同推流服务器对编码格式的支持并不一致（H.264、HEVC 等），如果使用插件返回的地址推流失败，可以改用 B 站官方预设的其他服务器地址，推流码仍使用插件提供的内容：
+
+  | 服务器 | RTMP 推流地址 |
+  | --- | --- |
+  | 全球 - 主要 | `rtmp://live-push.bilivideo.com/live-bvc/` |
+  | 非中国大陆地区 - 主要 | `rtmp://bdy.live-push.bilivideo.com/live-bvc/` |
+  | 中国大陆地区 - 备用 | `rtmp://txy2.live-push.bilivideo.com/live-bvc/` |
+  | 非中国大陆地区 - 备用 | `rtmp://txy.live-push.bilivideo.com/live-bvc/` |
+
 - **日志查看**：如果遇到问题，检查 OBS 日志文件：
   - Windows: `C:\Users\<YourUser>\AppData\Roaming\obs-studio\logs`
   - macOS: `~/Library/Logs/obs-studio/`
