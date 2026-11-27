@@ -371,6 +371,19 @@ jobs:
           echo "pluginName=${product_name}" >> $GITHUB_OUTPUT
           echo "pluginVersion=${product_version}" >> $GITHUB_OUTPUT
 
+      - name: Prepare Flatpak Runtimes 🧰
+        run: |
+          : Prepare Flatpak Runtimes 🧰
+          if [[ "${RUNNER_DEBUG}" ]]; then set -x; fi
+
+          # flatpak-builder updates the runtimes baked into the container image
+          # whenever Flathub publishes a newer commit. The container's overlayfs
+          # cannot rename a directory that lives in a lower layer, which fails
+          # with "Invalid cross-device link" and segfaults flatpak-builder, so
+          # work on a copy stored on the runner's own filesystem instead.
+          cp -a /var/lib/flatpak "$RUNNER_TEMP/flatpak"
+          echo "FLATPAK_SYSTEM_DIR=$RUNNER_TEMP/flatpak" >> "$GITHUB_ENV"
+
       - name: Build Flatpak Plugin 🧱
         uses: flatpak/flatpak-github-actions/flatpak-builder@401fe28a8384095fc1531b9d320b292f0ee45adb
         with:
