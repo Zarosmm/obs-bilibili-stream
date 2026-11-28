@@ -161,8 +161,8 @@ static void workerLoop()
 
 		try {
 			job();
-		} catch (const std::exception &error) {
-			obs_log(LOG_ERROR, "异步任务执行失败: %s", error.what());
+		} catch (const std::exception &) {
+			obs_log(LOG_ERROR, "异步任务执行失败");
 		} catch (...) {
 			obs_log(LOG_ERROR, "异步任务执行失败: 未知异常");
 		}
@@ -317,11 +317,11 @@ void HttpClient::runAsync(QObject *context, std::function<void()> work, std::fun
 	enqueue([work = std::move(work), done = std::move(done), guard]() {
 		try {
 			work();
-		} catch (const std::exception &error) {
+		} catch (const std::exception &) {
 			// Swallow the failure, but still deliver `done`: the callers rely
 			// on it to clear their busy state. The continuation reports the
 			// error through the shared result struct it captured.
-			obs_log(LOG_ERROR, "异步任务执行失败: %s", error.what());
+			obs_log(LOG_ERROR, "异步任务执行失败");
 		} catch (...) {
 			obs_log(LOG_ERROR, "异步任务执行失败: 未知异常");
 		}

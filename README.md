@@ -135,8 +135,8 @@ flatpak uninstall --user com.obsproject.Studio.Plugin.BilibiliStream
 
 1. **登录 Bilibili**：
     - 打开 OBS Studio，导航到菜单栏的 **Bilibili直播** → **登录**。
-    - 选择 **扫码登录**（使用手机扫描二维码）。
-    - 登录成功后，菜单中的"登录状态"将显示为"已登录"。
+    - 选择 **扫码登录**，用手机 Bilibili App 扫码并确认。
+    - 登录成功后，**登录** 子菜单将显示 **已登录**。直播间就绪后即可使用开播、打开直播间及更新直播间信息。
 
 2. **更新直播间信息**：
     - 导航到 **Bilibili直播** → **更新直播间信息**。
@@ -145,8 +145,8 @@ flatpak uninstall --user com.obsproject.Studio.Plugin.BilibiliStream
 
 3. **开始直播**：
     - 导航到 **Bilibili直播** → **开始直播**。
-    - 弹出提示框将显示 **RTMP 地址** 和 **推流码**，复制这些信息。
-    - 在 OBS 中，打开 **设置** → **输出** → **流**，设置：
+    - 在弹窗中分别复制 **服务器地址** 和 **推流码**。推流码默认隐藏，可按需显示。
+    - 在 OBS 中，打开 **设置** → **推流**，设置：
         - 服务：自定义
         - 服务器：粘贴 RTMP 地址（例如 `rtmp://live-push.bilivideo.com/live-bvc/`）
         - 流密钥：粘贴推流码（例如 `?streamname=...`）
@@ -166,6 +166,8 @@ flatpak uninstall --user com.obsproject.Studio.Plugin.BilibiliStream
   | 非中国大陆地区 - 主要 | `rtmp://bdy.live-push.bilivideo.com/live-bvc/` |
   | 中国大陆地区 - 备用 | `rtmp://txy2.live-push.bilivideo.com/live-bvc/` |
   | 非中国大陆地区 - 备用 | `rtmp://txy.live-push.bilivideo.com/live-bvc/` |
+
+- **隐私**：插件只记录操作名、状态码等诊断信息。新版加载旧配置时会移除插件配置里的推流地址、推流码和冗余账号字段。用于恢复登录的 Bilibili Cookie 仍保存在本机插件配置中。分享诊断资料时，请避开插件配置、旧版日志和含推流码的 OBS 配置。
 
 - **日志查看**：如果遇到问题，检查 OBS 日志文件：
   - Windows: `C:\Users\<YourUser>\AppData\Roaming\obs-studio\logs`

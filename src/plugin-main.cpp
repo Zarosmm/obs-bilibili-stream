@@ -40,7 +40,6 @@ struct StreamResult {
 	std::string message;
 	std::string rtmpAddr;
 	std::string rtmpCode;
-	std::string mid;
 	std::string faceQr;
 };
 
@@ -62,16 +61,17 @@ private slots:
 	void onUpdateRoomInfo();
 
 private:
-	void updateLoginStatus();
+	void updateActions();
 	void openLiveRoom();
 	void setBusy(bool busy);
-	void refreshLoginState(const std::string &cookies);
+	void refreshLoginState(const std::string &cookies, bool interactive = false);
 	void applyRoomTitle(const std::string &title);
 	void applyRoomPartition(int areaId, int partId);
 
 	Core::ConfigManager m_config;
 	UI::MenuManager *m_menu;
 	bool m_busy = false;
+	bool m_checkingLogin = false;
 };
 
 BilibiliStreamPlugin::BilibiliStreamPlugin(QMainWindow *parent)
@@ -85,18 +85,11 @@ BilibiliStreamPlugin::BilibiliStreamPlugin(QMainWindow *parent)
 	connect(m_menu, &UI::MenuManager::openRoomClicked, this, &BilibiliStreamPlugin::onOpenRoom);
 	connect(m_menu, &UI::MenuManager::updateRoomInfoClicked, this, &BilibiliStreamPlugin::onUpdateRoomInfo);
 
-	auto &cfg = m_config.config();
-	if (!cfg.cookies.empty()) {
-		// Refresh the cached login state and room id in the background: doing
-		// this on the UI thread used to freeze OBS for up to 10 seconds.
+	const auto &cfg = m_config.config();
+	if (!cfg.cookies.empty())
 		refreshLoginState(cfg.cookies);
-	} else {
-		updateLoginStatus();
-	}
-
-	if (cfg.streaming) {
-		m_menu->actions().streamToggle->setText("停止直播");
-	}
+	else
+		updateActions();
 }
 
 BilibiliStreamPlugin::~BilibiliStreamPlugin()
@@ -104,30 +97,39 @@ BilibiliStreamPlugin::~BilibiliStreamPlugin()
 	obs_log(LOG_DEBUG, "释放 BilibiliStreamPlugin 资源");
 }
 
-void BilibiliStreamPlugin::updateLoginStatus()
+void BilibiliStreamPlugin::updateActions()
 {
-	auto &cfg = m_config.config();
-	m_menu->actions().loginStatus->setText(cfg.login_status ? "登录状态: 已登录" : "登录状态: 未登录");
-	m_menu->actions().loginStatus->setChecked(cfg.login_status);
+	const auto &cfg = m_config.config();
+	auto &actions = m_menu->actions();
+	const bool roomReady = cfg.login_status && !cfg.room_id.empty() && !cfg.csrf_token.empty();
+	QString status = QStringLiteral("未登录，请扫码登录");
+	if (m_checkingLogin)
+		status = QStringLiteral("正在检查登录状态…");
+	else if (cfg.login_status)
+		status = roomReady ? QStringLiteral("已登录") : QStringLiteral("已登录，直播间未就绪");
+	else if (!cfg.cookies.empty())
+		status = QStringLiteral("无法确认登录状态，请重新扫码");
+	actions.loginStatus->setText(status);
+	actions.scanQrcode->setEnabled(!m_busy);
+	actions.streamToggle->setText(cfg.streaming ? QStringLiteral("停止直播") : QStringLiteral("开始直播"));
+	actions.streamToggle->setEnabled(!m_busy && roomReady);
+	actions.openRoom->setEnabled(!m_busy && roomReady);
+	actions.updateRoomInfo->setEnabled(!m_busy && roomReady);
 }
 
-// Disables the actions that perform network requests while one is in flight, so
-// a double click can no longer start a second, overlapping request.
 void BilibiliStreamPlugin::setBusy(bool busy)
 {
 	m_busy = busy;
-	auto &actions = m_menu->actions();
-	actions.scanQrcode->setEnabled(!busy);
-	actions.streamToggle->setEnabled(!busy);
-	actions.updateRoomInfo->setEnabled(!busy);
+	updateActions();
 }
 
-void BilibiliStreamPlugin::refreshLoginState(const std::string &cookies)
+void BilibiliStreamPlugin::refreshLoginState(const std::string &cookies, bool interactive)
 {
 	if (m_busy)
 		return;
 
 	auto result = std::make_shared<LoginResult>();
+	m_checkingLogin = true;
 	setBusy(true);
 	Http::HttpClient::runAsync(
 		this,
@@ -137,19 +139,28 @@ void BilibiliStreamPlugin::refreshLoginState(const std::string &cookies)
 				result->roomOk = Bili::BiliApi::getRoomIdAndCsrf(cookies, result->roomId,
 										 result->csrfToken, result->message);
 		},
-		[this, cookies, result]() {
-			setBusy(false);
+		[this, cookies, interactive, result]() {
 			auto &cfg = m_config.config();
-			cfg.cookies = cookies;
-			cfg.login_status = result->loggedIn;
-			if (result->loggedIn)
-				cfg.mid = result->mid;
-			if (result->roomOk) {
-				cfg.room_id = result->roomId;
-				cfg.csrf_token = result->csrfToken;
+			if (interactive && result->loggedIn) {
+				if (cfg.mid != result->mid)
+					cfg.streaming = false;
+				cfg.cookies = cookies;
+				m_config.save();
 			}
-			m_config.save();
-			updateLoginStatus();
+			if (!interactive || result->loggedIn) {
+				cfg.login_status = result->loggedIn;
+				cfg.mid = result->mid;
+				cfg.room_id = result->roomOk ? result->roomId : std::string{};
+				cfg.csrf_token = result->roomOk ? result->csrfToken : std::string{};
+			}
+			m_checkingLogin = false;
+			setBusy(false);
+			if (interactive && !result->roomOk) {
+				const auto message = result->message.empty()
+							     ? QStringLiteral("无法确认登录状态，请重新扫码")
+							     : QString::fromUtf8(result->message);
+				UI::DialogFactory::message(message, "登录");
+			}
 		});
 }
 
@@ -228,25 +239,23 @@ void BilibiliStreamPlugin::onScanQrcode()
 	if (m_busy)
 		return;
 
-	const std::string cookies = m_config.config().cookies;
 	auto result = std::make_shared<QrCodeResult>();
 	setBusy(true);
 	Http::HttpClient::runAsync(
 		this,
-		[cookies, result]() {
-			result->ok = Bili::BiliApi::getQrCode(cookies, result->qrData, result->qrKey, result->message);
-		},
+		[result]() { result->ok = Bili::BiliApi::getQrCode(result->qrData, result->qrKey, result->message); },
 		[this, result]() {
 			setBusy(false);
 			if (!result->ok) {
-				obs_log(LOG_ERROR, "获取二维码失败");
 				UI::DialogFactory::message(QString::fromUtf8(result->message), "消息");
 				return;
 			}
 
 			auto parent = (QWidget *)obs_frontend_get_main_window();
 			UI::DialogFactory::qrLogin(parent, result->qrData, result->qrKey,
-						   [this](const std::string &cookies) { refreshLoginState(cookies); });
+						   [this](const std::string &cookies) {
+							   refreshLoginState(cookies, true);
+						   });
 		});
 }
 
@@ -265,9 +274,8 @@ void BilibiliStreamPlugin::onStreamToggle()
 			[this, result]() {
 				setBusy(false);
 				if (result->ok) {
-					m_menu->actions().streamToggle->setText("开始直播");
 					m_config.config().streaming = false;
-					m_config.save();
+					updateActions();
 					UI::DialogFactory::message(QString::fromUtf8("直播已停止"), "消息");
 				} else {
 					UI::DialogFactory::message(QString::fromUtf8(result->message), "消息");
@@ -288,20 +296,15 @@ void BilibiliStreamPlugin::onStreamToggle()
 	setBusy(true);
 	Http::HttpClient::runAsync(
 		this,
-		[config, result]() mutable {
-			result->mid = config.mid;
+		[config, result]() {
 			result->ok = Bili::BiliApi::startLive(config, result->rtmpAddr, result->rtmpCode,
-							      result->message, result->faceQr, result->mid);
+							      result->message, result->faceQr);
 		},
 		[this, result]() {
 			setBusy(false);
 			if (result->ok) {
-				auto &cfg = m_config.config();
-				m_menu->actions().streamToggle->setText("停止直播");
-				cfg.streaming = true;
-				cfg.rtmp_addr = result->rtmpAddr;
-				cfg.rtmp_code = result->rtmpCode;
-				m_config.save();
+				m_config.config().streaming = true;
+				updateActions();
 				UI::DialogFactory::streamStarted((QWidget *)obs_frontend_get_main_window(),
 								 result->rtmpAddr, result->rtmpCode);
 			} else if (!result->faceQr.empty()) {
@@ -328,12 +331,10 @@ void BilibiliStreamPlugin::onUpdateRoomInfo()
 		this, [partitionData, result]() { *partitionData = Bili::BiliApi::getPartitionList(result->message); },
 		[this, parent, partitionData, result]() {
 			setBusy(false);
-			if (!partitionData->is_array())
-				UI::DialogFactory::message(QString::fromUtf8(result->message), "消息");
-
 			auto &cfg = m_config.config();
 			UI::DialogFactory::roomSettings(
 				parent, cfg.room_id, cfg.title, cfg.area_id, cfg.part_id, *partitionData,
+				QString::fromUtf8(result->message),
 				[this](const std::string &title) { applyRoomTitle(title); },
 				[this](int areaId, int partId) { applyRoomPartition(areaId, partId); });
 		});
