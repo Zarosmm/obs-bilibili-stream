@@ -10,6 +10,9 @@
 #include <QTimer>
 #include <QApplication>
 #include <QClipboard>
+#include <QCheckBox>
+#include <QDeadlineTimer>
+#include <QFormLayout>
 #include <charconv>
 #include "core/qr_generator.hpp"
 #include "bilibili_api.hpp"
@@ -41,13 +44,14 @@ static bool parseAreaId(const json11::Json &value, int &id)
 // dialog is closed.
 struct QrPollState {
 	std::string qrKey;
-	int retryCount = 0;
+	QDeadlineTimer expires{180000};
+	int consecutiveErrors = 0;
 	bool inFlight = false;
 	bool stopped = false;
 };
 
 struct QrLoginResult {
-	bool ok = false;
+	Bili::QrLoginStatus status = Bili::QrLoginStatus::Error;
 	std::string cookies;
 	std::string message;
 };
@@ -56,8 +60,7 @@ static QDialog *createBaseDialog(const QString &title, QWidget *parent)
 {
 	QDialog *dialog = new QDialog(parent);
 	dialog->setWindowTitle(title);
-	QVBoxLayout *layout = new QVBoxLayout(dialog);
-	dialog->setLayout(layout);
+	new QVBoxLayout(dialog);
 	return dialog;
 }
 
@@ -65,7 +68,10 @@ void DialogFactory::message(const QString &msg, const QString &title, QWidget *p
 {
 	QDialog *dialog = createBaseDialog(title, parent ? parent : (QWidget *)obs_frontend_get_main_window());
 	QVBoxLayout *layout = (QVBoxLayout *)dialog->layout();
-	layout->addWidget(new QLabel(msg));
+	auto *label = new QLabel(msg);
+	label->setTextFormat(Qt::PlainText);
+	label->setWordWrap(true);
+	layout->addWidget(label);
 	QPushButton *confirm = new QPushButton("确认");
 	layout->addWidget(confirm);
 	QObject::connect(confirm, &QPushButton::clicked, dialog, &QDialog::accept);
@@ -82,83 +88,144 @@ QDialog *DialogFactory::qrLogin(QWidget *parent, const std::string &qrData, cons
 	QLabel *qrLabel = new QLabel();
 	QPixmap pixmap = Core::QrGenerator::generate(qrData);
 	if (pixmap.isNull()) {
-		qrLabel->setText("无法生成二维码");
-	} else {
-		qrLabel->setPixmap(pixmap);
+		dialog->deleteLater();
+		message(QStringLiteral("无法生成二维码，请重新扫码"), QStringLiteral("扫码登录"), parent);
+		return nullptr;
 	}
+	qrLabel->setPixmap(pixmap);
+	qrLabel->setAlignment(Qt::AlignCenter);
 	layout->addWidget(qrLabel);
-	layout->addWidget(new QLabel("使用手机扫描二维码登录"));
+	auto *status = new QLabel(QStringLiteral("请使用手机 Bilibili App 扫码"));
+	status->setTextFormat(Qt::PlainText);
+	status->setWordWrap(true);
+	status->setAlignment(Qt::AlignCenter);
+	layout->addWidget(status);
 
-	QTimer *timer = new QTimer(dialog);
-	// Poll on the HTTP worker thread: a synchronous request here kept the UI
-	// thread busy for up to 10 seconds per tick.
+	auto *close = new QPushButton(QStringLiteral("关闭"));
+	layout->addWidget(close);
+	QObject::connect(close, &QPushButton::clicked, dialog, &QDialog::reject);
+
+	auto *timer = new QTimer(dialog);
 	auto state = std::make_shared<QrPollState>();
 	state->qrKey = qrKey;
+	const auto stopPolling = [state, timer, qrLabel, status](const QString &text) {
+		state->stopped = true;
+		timer->stop();
+		qrLabel->clear();
+		status->setText(text);
+	};
+	const auto expired = QStringLiteral("二维码已过期，请关闭此窗口后重新扫码");
 
-	QObject::connect(timer, &QTimer::timeout, dialog, [state, timer, qrLabel, dialog, onSuccess]() {
-		if (state->stopped || state->inFlight)
-			return;
-		if (state->retryCount > 180) {
-			state->stopped = true;
-			timer->stop();
-			qrLabel->setText("二维码已过期，请重新打开");
+	QObject::connect(timer, &QTimer::timeout, dialog, [=]() {
+		if (state->expires.hasExpired() && !state->inFlight) {
+			stopPolling(expired);
 			return;
 		}
-		++state->retryCount;
+		if (state->stopped || state->inFlight)
+			return;
 		state->inFlight = true;
 
 		auto result = std::make_shared<QrLoginResult>();
 		Http::HttpClient::runAsync(
 			dialog,
 			[state, result]() {
-				result->ok = Bili::BiliApi::qrLogin(state->qrKey, result->cookies, result->message);
+				result->status = Bili::BiliApi::qrLogin(state->qrKey, result->cookies, result->message);
 			},
-			[state, timer, dialog, onSuccess, result]() {
+			[=]() {
 				state->inFlight = false;
-				if (state->stopped || !result->ok)
+				if (state->stopped)
 					return;
-				state->stopped = true;
-				timer->stop();
-				if (onSuccess)
-					onSuccess(result->cookies);
-				dialog->accept();
+
+				using Bili::QrLoginStatus;
+				if (result->status != QrLoginStatus::Error)
+					state->consecutiveErrors = 0;
+
+				switch (result->status) {
+				case QrLoginStatus::Waiting:
+					status->setText(QStringLiteral("请使用手机 Bilibili App 扫码"));
+					break;
+				case QrLoginStatus::Scanned:
+					status->setText(QStringLiteral("已扫码，请在手机上确认登录"));
+					break;
+				case QrLoginStatus::Expired:
+					stopPolling(expired);
+					break;
+				case QrLoginStatus::Success:
+					state->stopped = true;
+					timer->stop();
+					if (onSuccess)
+						onSuccess(result->cookies);
+					dialog->accept();
+					break;
+				case QrLoginStatus::Error:
+					if (++state->consecutiveErrors >= 3) {
+						const auto error = result->message.empty()
+									   ? QStringLiteral("无法检查扫码状态")
+									   : QString::fromUtf8(result->message);
+						stopPolling(error + QStringLiteral("。请关闭此窗口后重试"));
+					} else {
+						status->setText(QStringLiteral("暂时无法检查扫码状态，正在重试…"));
+					}
+					break;
+				}
 			});
 	});
 
-	QObject::connect(dialog, &QDialog::finished, [state, timer, dialog]() {
+	QObject::connect(dialog, &QDialog::finished, dialog, [state, timer, dialog]() {
 		state->stopped = true;
 		timer->stop();
 		dialog->deleteLater();
 	});
 
-	timer->start(1000);
+	timer->start(2000);
 	dialog->exec();
 	return dialog;
 }
 
 QDialog *DialogFactory::streamStarted(QWidget *parent, const std::string &rtmpAddr, const std::string &rtmpCode)
 {
-	QDialog *dialog = createBaseDialog("消息", parent);
-	QVBoxLayout *layout = (QVBoxLayout *)dialog->layout();
+	auto *dialog = createBaseDialog(QStringLiteral("Bilibili 推流设置"), parent);
+	auto *layout = static_cast<QVBoxLayout *>(dialog->layout());
+	auto *instructions = new QLabel(QStringLiteral("在 OBS 的「设置 → 推流 → 自定义」中分别粘贴服务器和推流码。"));
+	instructions->setWordWrap(true);
+	layout->addWidget(instructions);
 
-	layout->addWidget(new QLabel(QString("Bilibili已开始直播请复制以下内容进行推流\n"
-					     "若自定义推流失败请使用预设的B站推流更换推流地址尝试\n"
-					     "RTMP 地址: %1\n推流码: %2")
-					     .arg(QString::fromStdString(rtmpAddr), QString::fromStdString(rtmpCode))));
+	auto *form = new QFormLayout();
+	layout->addLayout(form);
+	auto addCopyRow = [dialog, form](const QString &label, const QString &value, bool secret) {
+		auto *row = new QHBoxLayout();
+		auto *field = new QLineEdit(value);
+		field->setReadOnly(true);
+		if (secret)
+			field->setEchoMode(QLineEdit::Password);
+		auto *copy = new QPushButton(QStringLiteral("复制"));
+		copy->setAccessibleName(QStringLiteral("复制") + label);
+		copy->setAutoDefault(false);
+		row->addWidget(field, 1);
+		row->addWidget(copy);
+		form->addRow(label, row);
+		QObject::connect(copy, &QPushButton::clicked, dialog, [copy, field]() {
+			QApplication::clipboard()->setText(field->text());
+			copy->setText(QStringLiteral("已复制"));
+			QTimer::singleShot(1500, copy, [copy]() { copy->setText(QStringLiteral("复制")); });
+		});
+		return field;
+	};
 
-	QPushButton *copy = new QPushButton("复制");
-	QPushButton *confirm = new QPushButton("确认");
-	layout->addWidget(copy);
-	layout->addWidget(confirm);
-
-	QObject::connect(copy, &QPushButton::clicked, [=]() {
-		QApplication::clipboard()->setText(
-			QString("推流地址: %1\n推流码: %2")
-				.arg(QString::fromStdString(rtmpAddr), QString::fromStdString(rtmpCode)));
+	addCopyRow(QStringLiteral("服务器地址"), QString::fromStdString(rtmpAddr), false);
+	auto *keyField = addCopyRow(QStringLiteral("推流码"), QString::fromStdString(rtmpCode), true);
+	auto *showKey = new QCheckBox(QStringLiteral("显示推流码"));
+	QObject::connect(showKey, &QCheckBox::toggled, keyField, [keyField](bool visible) {
+		keyField->setEchoMode(visible ? QLineEdit::Normal : QLineEdit::Password);
 	});
-	QObject::connect(confirm, &QPushButton::clicked, dialog, &QDialog::accept);
-	QObject::connect(dialog, &QDialog::finished, dialog, &QDialog::deleteLater);
+	layout->addWidget(showKey);
 
+	auto *close = new QPushButton(QStringLiteral("关闭"));
+	layout->addWidget(close);
+	close->setFocus();
+	QObject::connect(close, &QPushButton::clicked, dialog, &QDialog::accept);
+	QObject::connect(dialog, &QDialog::finished, dialog, &QDialog::deleteLater);
+	dialog->setMinimumWidth(440);
 	dialog->exec();
 	return dialog;
 }
@@ -197,6 +264,7 @@ QDialog *DialogFactory::faceAuth(QWidget *parent, const std::string &faceUrl)
 
 QDialog *DialogFactory::roomSettings(QWidget *parent, const std::string &roomUrl, const std::string &currentTitle,
 				     int currentAreaId, int currentPartId, const json11::Json &partitionData,
+				     const QString &partitionError,
 				     std::function<void(const std::string &title)> onTitleApply,
 				     std::function<void(int areaId, int partId)> onPartitionApply)
 {
@@ -251,7 +319,7 @@ QDialog *DialogFactory::roomSettings(QWidget *parent, const std::string &roomUrl
 			size_t selectedAreaIndex = 0;
 			for (size_t i = 0; i < parts[partIndex].list.size(); ++i) {
 				int id = 0;
-				if (!parseAreaId(parts[partIndex].list[i]["id"], id))
+				if (!parseAreaId(parts[partIndex].list[i]["id"], id) || id <= 0)
 					continue;
 				QString name = QString::fromStdString(parts[partIndex].list[i]["name"].string_value());
 				areaCombo->addItem(name, id);
@@ -259,13 +327,21 @@ QDialog *DialogFactory::roomSettings(QWidget *parent, const std::string &roomUrl
 					selectedAreaIndex = static_cast<size_t>(areaCombo->count() - 1);
 			}
 			areaCombo->setCurrentIndex(static_cast<int>(selectedAreaIndex));
-		} else {
-			areaCombo->addItem("英雄联盟", 86);
-			if (currentAreaId == 86)
-				areaCombo->setCurrentIndex(0);
 		}
+		areaCombo->setEnabled(areaCombo->count() > 0);
+		confirmPartition->setEnabled(areaCombo->count() > 0);
 	};
-	updateAreaCombo(static_cast<int>(selectedPartIndex));
+	updateAreaCombo(partCombo->currentIndex());
+	partCombo->setEnabled(partCombo->count() > 0);
+	if (!partitionError.isEmpty()) {
+		auto *error = new QLabel(partitionError);
+		error->setTextFormat(Qt::PlainText);
+		error->setWordWrap(true);
+		layout->addWidget(error);
+	}
+	confirmTitle->setEnabled(!titleInput->text().trimmed().isEmpty());
+	QObject::connect(titleInput, &QLineEdit::textChanged, confirmTitle,
+			 [confirmTitle](const QString &text) { confirmTitle->setEnabled(!text.trimmed().isEmpty()); });
 	QObject::connect(partCombo, QOverload<int>::of(&QComboBox::currentIndexChanged), updateAreaCombo);
 
 	QObject::connect(confirmTitle, &QPushButton::clicked, [=]() {
@@ -276,7 +352,7 @@ QDialog *DialogFactory::roomSettings(QWidget *parent, const std::string &roomUrl
 	});
 
 	QObject::connect(confirmPartition, &QPushButton::clicked, [=]() {
-		if (onPartitionApply) {
+		if (onPartitionApply && areaCombo->currentIndex() >= 0) {
 			onPartitionApply(areaCombo->currentData().toInt(), partCombo->currentData().toInt());
 		}
 	});

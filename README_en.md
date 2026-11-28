@@ -128,7 +128,7 @@ The plugin will be installed to `/usr/lib/obs-plugins/` directory.
 1. **Login to Bilibili**:
     - Open OBS Studio, go to menu **Bilibili直播** → **登录** (Login).
     - Select **扫码登录** (QR Code Login) and scan with your Bilibili mobile app.
-    - After successful login, the "登录状态" (Login Status) will show "已登录" (Logged in).
+    - After successful login, the **登录** submenu shows **已登录** (Logged in). Room actions become available once the room is ready.
 
 2. **Update Livestream Room Info**:
     - Go to **Bilibili直播** → **更新直播间信息** (Update Room Info).
@@ -137,11 +137,11 @@ The plugin will be installed to `/usr/lib/obs-plugins/` directory.
 
 3. **Start Streaming**:
     - Go to **Bilibili直播** → **开始直播** (Start Streaming).
-    - Copy the **RTMP Address** and **Stream Key** from the popup dialog.
-    - In OBS, go to **Settings** → **Output** → **Stream**, set:
+    - Use the individual copy buttons for the **Server Address** and **Stream Key**. The key is hidden by default.
+    - In OBS, go to **Settings** → **Stream**, set:
         - Service: Custom
         - Server: Paste RTMP address (e.g., `rtmp://live-push.bilivideo.com/live-bvc/`)
-        - Stream Key: Paste stream key (e.g., `?streamname=...`)
+        - Stream Key: Paste the stream key (e.g., `?streamname=...`)
     - Click **开始直播** (Start Streaming) in OBS.
 
 4. **End Streaming**:
@@ -158,6 +158,8 @@ The plugin will be installed to `/usr/lib/obs-plugins/` directory.
   | Outside mainland China - primary | `rtmp://bdy.live-push.bilivideo.com/live-bvc/` |
   | Mainland China - backup | `rtmp://txy2.live-push.bilivideo.com/live-bvc/` |
   | Outside mainland China - backup | `rtmp://txy.live-push.bilivideo.com/live-bvc/` |
+
+- **Privacy**: The plugin logs operation names and diagnostic codes. It removes stream credentials and redundant account fields when loading old plugin settings. The local plugin config still contains the Bilibili login cookie for session restore. Keep the plugin config, previous-version logs, and OBS profiles with saved stream keys private.
 
 - **Logs**: If you encounter issues, check OBS log files:
   - Windows: `C:\Users\<YourUser>\AppData\Roaming\obs-studio\logs`

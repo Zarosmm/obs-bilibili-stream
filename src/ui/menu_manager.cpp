@@ -2,8 +2,7 @@
 #include <QMenu>
 
 namespace UI {
-MenuManager::MenuManager(QMenuBar *menuBar, QObject *parent)
-	: QObject(parent), m_menuBar(menuBar)
+MenuManager::MenuManager(QMenuBar *menuBar, QObject *parent) : QObject(parent), m_menuBar(menuBar)
 {
 	setupMenu();
 }
@@ -14,8 +13,7 @@ void MenuManager::setupMenu()
 	QMenu *loginMenu = bilibiliMenu->addMenu("登录");
 
 	m_actions.scanQrcode = loginMenu->addAction("扫码登录");
-	m_actions.loginStatus = loginMenu->addAction("登录状态: 未登录");
-	m_actions.loginStatus->setCheckable(true);
+	m_actions.loginStatus = loginMenu->addAction("未登录，请扫码登录");
 	m_actions.loginStatus->setEnabled(false);
 
 	m_actions.streamToggle = bilibiliMenu->addAction("开始直播");
